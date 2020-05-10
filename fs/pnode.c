@@ -14,9 +14,10 @@
 #include "pnode.h"
 
 #ifdef CONFIG_RKP_NS_PROT
-void rkp_set_mnt_flags(struct vfsmount *mnt,int flags);
-void rkp_reset_mnt_flags(struct vfsmount *mnt,int flags);
+void rkp_set_mnt_flags(struct vfsmount *mnt, int flags);
+void rkp_reset_mnt_flags(struct vfsmount *mnt, int flags);
 #endif
+
 /* return the next shared peer mount of @p */
 static inline struct mount *next_peer(struct mount *p)
 {
@@ -149,8 +150,7 @@ void change_mnt_propagation(struct mount *mnt, int type)
 #else
 			mnt->mnt.mnt_flags |= MNT_UNBINDABLE;
 #endif
-		}
-		else {
+		} else {
 #ifdef CONFIG_RKP_NS_PROT
 			rkp_reset_mnt_flags(mnt->mnt,MNT_UNBINDABLE);
 #else
@@ -286,7 +286,7 @@ static int propagate_one(struct mount *m)
 		if (IS_MNT_SHARED(m))
 			type |= CL_MAKE_SHARED;
 	}
-
+		
 	/* Notice when we are propagating across user namespaces */
 	if (m->mnt_ns->user_ns != user_ns)
 		type |= CL_UNPRIVILEGED;
@@ -689,11 +689,11 @@ int propagate_umount(struct list_head *list)
 
 void propagate_remount(struct mount *mnt)
 {
+	struct mount *parent = mnt->mnt_parent;
+	struct mount *p = mnt, *m;
 #ifdef CONFIG_RKP_NS_PROT
 	struct super_block *sb = mnt->mnt->mnt_sb;
 #else
-	struct mount *parent = mnt->mnt_parent;
-	struct mount *p = mnt, *m;
 	struct super_block *sb = mnt->mnt.mnt_sb;
 #endif
 
@@ -701,8 +701,14 @@ void propagate_remount(struct mount *mnt)
 		return;
 	for (p = propagation_next(parent, parent); p;
 				p = propagation_next(p, parent)) {
+#ifdef CONFIG_RKP_NS_PROT
+		m = __lookup_mnt(p->mnt, mnt->mnt_mountpoint);
+		if (m)
+			sb->s_op->copy_mnt_data(m->mnt->data, mnt->mnt->data);
+#else
 		m = __lookup_mnt(&p->mnt, mnt->mnt_mountpoint);
 		if (m)
 			sb->s_op->copy_mnt_data(m->mnt.data, mnt->mnt.data);
+#endif
 	}
 }

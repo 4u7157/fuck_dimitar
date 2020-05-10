@@ -22,6 +22,7 @@
 #ifdef CONFIG_FSCRYPT_SDP
 #include <linux/fscrypto_sdp_ioctl.h>
 #endif
+
 /**
  * Swap memory between @a and @b for @len bytes.
  *
@@ -894,7 +895,6 @@ resizefs_out:
 	case FS_IOC_REMOVE_CHAMBER:
 		return fscrypt_sdp_ioctl(filp, cmd, arg);
 #endif
-
 	default:
 		return -ENOTTY;
 	}

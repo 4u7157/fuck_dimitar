@@ -396,9 +396,6 @@ struct flex_groups {
 #define EXT4_EXTENTS_FL			0x00080000 /* Inode uses extents */
 #define EXT4_EA_INODE_FL	        0x00200000 /* Inode used for large EA */
 #define EXT4_EOFBLOCKS_FL		0x00400000 /* Blocks allocated beyond EOF */
-#ifdef CONFIG_EXT4_DLP
-#define EXT4_DLP_FL				0x01000000 /* DLP file */
-#endif
 #define EXT4_INLINE_DATA_FL		0x10000000 /* Inode has inline data. */
 #define EXT4_PROJINHERIT_FL		0x20000000 /* Create with parents projid */
 #define EXT4_CORE_FILE_FL		0x40000000 /* allow use of reserved space */
@@ -1300,8 +1297,7 @@ struct ext4_super_block {
 	__le64	s_kbytes_written;	/* nr of lifetime kilobytes written */
 	__le32	s_snapshot_inum;	/* Inode number of active snapshot */
 	__le32	s_snapshot_id;		/* sequential ID of active snapshot */
-#define s_sec_r_blocks_count	s_snapshot_r_blocks_count
-#define ext4_sec_r_blocks_count(es)	(le64_to_cpu(es->s_sec_r_blocks_count))
+#define ext4_sec_r_blocks_count(es)	(le64_to_cpu(es->s_snapshot_r_blocks_count))
 	__le64	s_snapshot_r_blocks_count; /* reserved blocks for active
 					      snapshot's future use */
 	__le32	s_snapshot_list;	/* inode number of the head of the
@@ -1329,9 +1325,7 @@ struct ext4_super_block {
 	__le32	s_lpf_ino;		/* Location of the lost+found inode */
 	__le32	s_prj_quota_inum;	/* inode for tracking project quota */
 	__le32	s_checksum_seed;	/* crc32c(uuid) if csum_seed set */
-	__le32	s_reserved[92];	 	/* Padding to the s_sec_magic */
-	__le32	s_sec_magic;		/* flag for reserved inodes */
-	__le32	s_reserved2[5];		/* Padding to the end of the block */
+	__le32	s_reserved[98];		/* Padding to the end of the block */
 	__le32	s_checksum;		/* crc32c(superblock) */
 };
 
@@ -1533,14 +1527,6 @@ struct ext4_sb_info {
 	 * or EXTENTS flag.
 	 */
 	struct percpu_rw_semaphore s_writepages_rwsem;
-
-	/* To gather information of fragmentation */
-	unsigned int s_sec_part_best_extents;
-	unsigned int s_sec_part_current_extents;
-	unsigned int s_sec_part_score;
-	unsigned int s_sec_defrag_writes_kb;
-	unsigned int s_sec_num_apps;
-	unsigned int s_sec_capacity_apps_kb;
 };
 
 static inline struct ext4_sb_info *EXT4_SB(struct super_block *sb)
@@ -1919,9 +1905,7 @@ static inline bool ext4_has_incompat_features(struct super_block *sb)
 /*
  * Default reserved inode count
  */
-#define EXT4_DEF_RESERVE_INODE 4096
-#define EXT4_SEC_DATA_MAGIC 0xBAB0CAFE /* data partition magic */
-
+#define EXT4_DEF_RESERVE_INODE 8192
 /*
  * Minimum number of groups in a flexgroup before we separate out
  * directories into the first block group of a flexgroup
@@ -2742,13 +2726,11 @@ extern void ext4_group_desc_csum_set(struct super_block *sb, __u32 group,
 extern int ext4_register_li_request(struct super_block *sb,
 				    ext4_group_t first_not_zeroed);
 
-/* for debugging, sangwoo2.lee */
 extern void print_iloc_info(struct super_block *sb, struct ext4_iloc iloc);
 extern void print_bh(struct super_block *sb,
 		struct buffer_head *bh, int start, int len);
 extern void print_block_data(struct super_block *sb, sector_t blocknr,
 		unsigned char *data_to_dump, int start, int len);
-/* for debugging */
 
 static inline int ext4_has_group_desc_csum(struct super_block *sb)
 {
@@ -3291,25 +3273,6 @@ static inline bool ext4_aligned_io(struct inode *inode, loff_t off, loff_t len)
 	int blksize = 1 << inode->i_blkbits;
 
 	return IS_ALIGNED(off, blksize) && IS_ALIGNED(len, blksize);
-}
-
-static inline bool ext4_android_claim_sec_r_blocks(unsigned int flags) {
-	if (flags & EXT4_MB_USE_EXTRA_ROOT_BLOCKS)
-		return true;
-
-#if ANDROID_VERSION < 90000
-	if (in_group_p(AID_USE_SEC_RESERVED))
-		return true;
-#endif
-
-	return false;
-}
-
-static inline bool ext4_android_claim_r_blocks(struct ext4_sb_info *sbi) {
-	/* for O upgrade without factory reset */
-	if (in_group_p(AID_USE_ROOT_RESERVED))
-		return true;
-	return false;
 }
 
 #endif	/* __KERNEL__ */

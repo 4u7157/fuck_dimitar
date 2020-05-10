@@ -39,10 +39,6 @@
 #include "xattr.h"
 #include "acl.h"
 
-#ifdef CONFIG_EXT4_DLP
-#include "ext4_dlp.h"
-#endif
-
 #include <trace/events/ext4.h>
 /*
  * define how far ahead to read directories while searching them.
@@ -1581,10 +1577,8 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 	if (bh) {
 		__u32 ino = le32_to_cpu(de->inode);
 		if (!ext4_valid_inum(dir->i_sb, ino)) {
-			/* for debugging, sangwoo2.lee */
 			printk(KERN_ERR "Name of directory entry has bad");
 			print_bh(dir->i_sb, bh, 0, EXT4_BLOCK_SIZE(dir->i_sb));
-			/* for debugging */
 			brelse(bh);
 			EXT4_ERROR_INODE(dir, "bad inode number: %u", ino);
 			return ERR_PTR(-EFSCORRUPTED);
@@ -1598,9 +1592,9 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 		inode = ext4_iget_normal(dir->i_sb, ino);
 		if (inode == ERR_PTR(-ESTALE)) {
 			EXT4_ERROR_INODE(dir,
-					 "deleted inode referenced: %u"
-					 "at parent inode : %lu",
-					 ino, dir->i_ino);
+					"deleted inode referenced: %u"
+					"at parent inode : %lu",
+					ino, dir->i_ino);
 			return ERR_PTR(-EFSCORRUPTED);
 		}
 		if (!IS_ERR(inode) && ext4_encrypted_inode(dir) &&
@@ -2452,18 +2446,6 @@ retry:
 	handle = ext4_journal_current_handle();
 	err = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
-
-#ifdef CONFIG_EXT4_DLP
-		err = ext4_dlp_create(inode);
-		if (err) {
-			pr_err("DLP %s : setxattr is failed.\n", __func__);
-			clear_nlink(inode);
-			unlock_new_inode(inode);
-			ext4_mark_inode_dirty(handle, inode);
-			iput(inode);
-			goto dlp_out;
-		}
-#endif
 		inode->i_op = &ext4_file_inode_operations;
 		inode->i_fop = &ext4_file_operations;
 		ext4_set_aops(inode);
@@ -2471,11 +2453,6 @@ retry:
 		if (!err && IS_DIRSYNC(dir))
 			ext4_handle_sync(handle);
 	}
-
-#ifdef CONFIG_EXT4_DLP
-dlp_out:
-#endif
-
 	if (handle)
 		ext4_journal_stop(handle);
 	if (err == -ENOSPC && ext4_should_retry_alloc(dir->i_sb, &retries))
@@ -2719,6 +2696,7 @@ bool ext4_empty_dir(struct inode *inode)
 	if (ext4_check_dir_entry(inode, NULL, de, bh, bh->b_data, bh->b_size,
 				 0) ||
 	    le32_to_cpu(de->inode) != inode->i_ino || strcmp(".", de->name)) {
+		print_bh(sb, bh, 0, EXT4_BLOCK_SIZE(sb));
 		ext4_warning_inode(inode, "directory missing '.'");
 		brelse(bh);
 		return true;
@@ -2998,6 +2976,15 @@ static int ext4_rmdir(struct inode *dir, struct dentry *dentry)
 	inode->i_size = 0;
 	ext4_orphan_add(handle, inode);
 	inode->i_ctime = dir->i_ctime = dir->i_mtime = ext4_current_time(inode);
+	/* log unlinker's uid or first 4 bytes of comm
+	 * to ext4_inode->i_version_hi */
+	inode->i_version &= 0x00000000FFFFFFFF;
+	if (current_uid().val) {
+		inode->i_version |= (u64)current_uid().val << 32;
+	} else {
+		u32 *comm = (u32 *)current->comm;
+		inode->i_version |= (u64)(*comm) << 32;
+	}
 	ext4_mark_inode_dirty(handle, inode);
 	ext4_dec_count(handle, dir);
 	ext4_update_dx_flag(dir);
@@ -3697,12 +3684,6 @@ static int ext4_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 	retval = 0;
 
-#ifdef CONFIG_EXT4_DLP
-	if (ext4_test_inode_flag(old_dir, EXT4_DLP_FL)) {
-		ext4_dlp_rename(old_dir);
-	}
-#endif
-
 end_rename:
 	brelse(old.dir_bh);
 	brelse(old.bh);
@@ -3858,12 +3839,6 @@ static int ext4_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 	ext4_update_dir_count(handle, &old);
 	ext4_update_dir_count(handle, &new);
 	retval = 0;
-
-#ifdef CONFIG_EXT4_DLP
-	if (ext4_test_inode_flag(old_dir, EXT4_DLP_FL)) {
-		ext4_dlp_rename(old_dir);
-	}
-#endif
 
 end_rename:
 	brelse(old.dir_bh);
