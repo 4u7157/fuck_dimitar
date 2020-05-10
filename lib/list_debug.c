@@ -11,13 +11,6 @@
 #include <linux/kernel.h>
 #include <linux/rculist.h>
 
-static inline void list_bug(void)
-{
-#ifdef CONFIG_DEBUG_LIST_PANIC
-	BUG_ON(1);
-#endif
-}
-
 /*
  * Check that the data structures for the list manipulations are reasonably
  * valid. Failures here indicate memory corruption (and possibly an exploit
