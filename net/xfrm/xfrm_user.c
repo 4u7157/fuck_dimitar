@@ -934,7 +934,6 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
 
 	if (x->security)
 		ret = copy_sec_ctx(x->security, skb);
-
 out:
 	return ret;
 }
@@ -1485,9 +1484,6 @@ static int validate_tmpl(int nr, struct xfrm_user_tmpl *ut, u16 family)
 				return -EINVAL;
 			break;
 		}
-		if (ut[i].mode >= XFRM_MODE_MAX)
-			return -EINVAL;
-
 		if (ut[i].mode >= XFRM_MODE_MAX)
 			return -EINVAL;
 
