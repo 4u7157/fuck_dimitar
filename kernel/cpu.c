@@ -1195,7 +1195,7 @@ int __ref _cpus_down(const struct cpumask *cpus, enum cpuhp_state target)
 			cpumask_set_cpu(cpu, &take_down_cpus);
 		} else {
 			/*
-			 * Hotplug out failed.
+			 * Hotplug out failed. 
 			 * CPU bring up has already been completed.
 			 * Skip next hotplug out step.
 			 */

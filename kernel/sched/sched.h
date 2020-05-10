@@ -6,7 +6,6 @@
 #include <linux/sched/deadline.h>
 #include <linux/binfmts.h>
 #include <linux/mutex.h>
-#include <linux/psi.h>
 #include <linux/spinlock.h>
 #include <linux/stop_machine.h>
 #include <linux/irq_work.h>
@@ -272,7 +271,6 @@ extern struct mutex sched_domains_mutex;
 #ifdef CONFIG_CGROUP_SCHED
 
 #include <linux/cgroup.h>
-#include <linux/psi.h>
 
 struct cfs_rq;
 struct rt_rq;
@@ -856,12 +854,6 @@ struct rq {
 #endif
 };
 
-#ifdef CONFIG_SCHEDSTATS
-extern void set_schedstats(bool enabled);
-#else
-static inline void set_scedstats(bool enabled) { }
-#endif
-
 static inline int cpu_of(struct rq *rq)
 {
 #ifdef CONFIG_SMP
@@ -1430,6 +1422,11 @@ struct sched_class {
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_change_group) (struct task_struct *p, int type);
+#endif
+#ifdef CONFIG_SCHED_WALT
+	void (*fixup_cumulative_runnable_avg)(struct rq *rq,
+					      struct task_struct *task,
+					      u64 new_task_load);
 #endif
 };
 

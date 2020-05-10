@@ -76,8 +76,6 @@
 #include <linux/frame.h>
 #include <linux/prefetch.h>
 #include <linux/exynos-ss.h>
-#include <linux/cpufreq_times.h>
-#include <linux/sched/loadavg.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -86,8 +84,6 @@
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #endif
-
-#include <linux/sec_debug.h>
 
 #include "sched.h"
 #include "../workqueue_internal.h"
@@ -775,20 +771,16 @@ static void set_load_weight(struct task_struct *p)
 static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	update_rq_clock(rq);
-	if (!(flags & ENQUEUE_RESTORE)) {
+	if (!(flags & ENQUEUE_RESTORE))
 		sched_info_queued(rq, p);
-		psi_enqueue(p, flags & ENQUEUE_WAKEUP);
-	}
 	p->sched_class->enqueue_task(rq, p, flags);
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	update_rq_clock(rq);
-	if (!(flags & DEQUEUE_SAVE)) {
+	if (!(flags & DEQUEUE_SAVE))
 		sched_info_dequeued(rq, p);
-		psi_dequeue(p, flags & DEQUEUE_SLEEP);
-	}
 	p->sched_class->dequeue_task(rq, p, flags);
 }
 
@@ -1188,7 +1180,8 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if (cpumask_equal(&p->cpus_allowed, new_mask))
 		goto out;
 
-	if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
+	dest_cpu = cpumask_any_and(cpu_valid_mask, new_mask);
+	if (dest_cpu >= nr_cpu_ids) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1209,7 +1202,6 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if (cpumask_test_cpu(task_cpu(p), new_mask))
 		goto out;
 
-	dest_cpu = cpumask_any_and(cpu_valid_mask, new_mask);
 	if (task_running(rq, p) || p->state == TASK_WAKING) {
 		struct migration_arg arg = { p, dest_cpu };
 		/* Need help from migration thread: drop lock and wait. */
@@ -2143,7 +2135,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 
 	if (task_cpu(p) != cpu) {
 		wake_flags |= WF_MIGRATED;
-		psi_ttwu_dequeue(p);
 		set_task_cpu(p, cpu);
 	}
 
@@ -2355,7 +2346,7 @@ int sysctl_numa_balancing(struct ctl_table *table, int write,
 DEFINE_STATIC_KEY_FALSE(sched_schedstats);
 static bool __initdata __sched_schedstats = false;
 
-void set_schedstats(bool enabled)
+static void set_schedstats(bool enabled)
 {
 	if (enabled)
 		static_branch_enable(&sched_schedstats);
@@ -3276,7 +3267,6 @@ void scheduler_tick(void)
 			walt_ktime_clock(), 0);
 	calc_global_load_tick(rq);
 	sched_freq_tick(cpu);
-	psi_task_tick(rq);
 	raw_spin_unlock(&rq->lock);
 
 	perf_event_task_tick();
@@ -3403,7 +3393,7 @@ static noinline void __schedule_bug(struct task_struct *prev)
 	if (oops_in_progress)
 		return;
 
-	pr_auto(ASL6, "BUG: scheduling while atomic: %s/%d/0x%08x\n",
+	printk(KERN_ERR "BUG: scheduling while atomic: %s/%d/0x%08x\n",
 		prev->comm, prev->pid, preempt_count());
 
 	debug_show_held_locks(prev);
@@ -3420,9 +3410,6 @@ static noinline void __schedule_bug(struct task_struct *prev)
 		panic("scheduling while atomic\n");
 
 	dump_stack();
-#ifdef CONFIG_DEBUG_ATOMIC_SLEEP_PANIC
-	BUG();
-#endif
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
 }
 
@@ -7994,8 +7981,6 @@ void __init sched_init(void)
 
 	init_schedstats();
 
-	psi_init();
-
 	scheduler_running = 1;
 }
 
@@ -8052,7 +8037,7 @@ void ___might_sleep(const char *file, int line, int preempt_offset)
 	/* Save this before calling printk(), since that will clobber it */
 	preempt_disable_ip = get_preempt_disable_ip(current);
 
-	pr_auto(ASL6,
+	printk(KERN_ERR
 		"BUG: sleeping function called from invalid context at %s:%d\n",
 			file, line);
 	printk(KERN_ERR
@@ -8073,9 +8058,6 @@ void ___might_sleep(const char *file, int line, int preempt_offset)
 		pr_cont("\n");
 	}
 	dump_stack();
-#ifdef CONFIG_DEBUG_ATOMIC_SLEEP_PANIC
-	BUG();
-#endif
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
 }
 EXPORT_SYMBOL(___might_sleep);
@@ -8752,10 +8734,6 @@ static int cpu_cgroup_can_attach(struct cgroup_taskset *tset)
 	cgroup_taskset_for_each(task, css, tset) {
 #ifdef CONFIG_RT_GROUP_SCHED
 		if (!sched_rt_can_attach(css_tg(css), task))
-			return -EINVAL;
-#else
-		/* We don't support RT-tasks being in separate groups */
-		if (task->sched_class != &fair_sched_class)
 			return -EINVAL;
 #endif
 		/*

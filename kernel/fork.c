@@ -202,10 +202,10 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
 	local_irq_enable();
 
 	stack = __vmalloc_node_range(THREAD_SIZE, THREAD_SIZE,
-			VMALLOC_START, VMALLOC_END,
-			THREADINFO_GFP | __GFP_HIGHMEM,
-			PAGE_KERNEL,
-			0, node, __builtin_return_address(0));
+				     VMALLOC_START, VMALLOC_END,
+				     THREADINFO_GFP | __GFP_HIGHMEM,
+				     PAGE_KERNEL,
+				     0, node, __builtin_return_address(0));
 
 	/*
 	 * We can't call find_vm_area() in interrupt context, and
@@ -217,7 +217,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
 	return stack;
 #else
 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
-			THREAD_SIZE_ORDER);
+					     THREAD_SIZE_ORDER);
 
 	return page ? page_address(page) : NULL;
 #endif
@@ -253,7 +253,7 @@ static inline void free_thread_stack(struct task_struct *tsk)
 static struct kmem_cache *thread_stack_cache;
 
 static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
-		int node)
+						  int node)
 {
 	return kmem_cache_alloc_node(thread_stack_cache, THREADINFO_GFP, node);
 }
@@ -266,7 +266,7 @@ static void free_thread_stack(struct task_struct *tsk)
 void thread_stack_cache_init(void)
 {
 	thread_stack_cache = kmem_cache_create("thread_stack", THREAD_SIZE,
-			THREAD_SIZE, 0, NULL);
+					      THREAD_SIZE, 0, NULL);
 	BUG_ON(thread_stack_cache == NULL);
 }
 # endif
@@ -304,13 +304,13 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
 
 		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
 			mod_zone_page_state(page_zone(vm->pages[i]),
-					NR_KERNEL_STACK_KB,
-					PAGE_SIZE / 1024 * account);
+					    NR_KERNEL_STACK_KB,
+					    PAGE_SIZE / 1024 * account);
 		}
 
 		/* All stack pages belong to the same memcg. */
 		memcg_kmem_update_page_stat(vm->pages[0], MEMCG_KERNEL_STACK_KB,
-				account * (THREAD_SIZE / 1024));
+					    account * (THREAD_SIZE / 1024));
 	} else {
 		/*
 		 * All stack pages are in the same zone and belong to the
@@ -319,10 +319,10 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
 		struct page *first_page = virt_to_page(stack);
 
 		mod_zone_page_state(page_zone(first_page), NR_KERNEL_STACK_KB,
-				THREAD_SIZE / 1024 * account);
+				    THREAD_SIZE / 1024 * account);
 
 		memcg_kmem_update_page_stat(first_page, MEMCG_KERNEL_STACK_KB,
-				account * (THREAD_SIZE / 1024));
+					    account * (THREAD_SIZE / 1024));
 	}
 }
 
@@ -399,7 +399,7 @@ void __put_task_struct(struct task_struct *tsk)
 	WARN_ON(tsk == current);
 
 	cgroup_free(tsk);
-	task_numa_free(tsk);
+	task_numa_free(tsk, true);
 	security_task_free(tsk);
 	exit_creds(tsk);
 	delayacct_tsk_free(tsk);
@@ -1964,6 +1964,10 @@ static __latent_entropy struct task_struct *copy_process(
 	if (retval)
 		goto bad_fork_cgroup_threadgroup_change_end;
 
+	retval = dup_task_integrity(clone_flags, p);
+	if (retval)
+		goto bad_fork_free_pid;
+
 	/*
 	 * From this point on we must avoid any synchronous user-space
 	 * communication until we take the tasklist-lock. In particular, we do
@@ -1974,10 +1978,6 @@ static __latent_entropy struct task_struct *copy_process(
 
 	p->start_time = ktime_get_ns();
 	p->real_start_time = ktime_get_boot_ns();
-
-	retval = dup_task_integrity(clone_flags, p);
-	if (retval)
-		goto bad_fork_free_pid;
 
 	/*
 	 * Make it visible to the rest of the system, but dont wake it up yet.
@@ -2079,9 +2079,9 @@ bad_fork_cancel_cgroup:
 	spin_unlock(&current->sighand->siglock);
 	write_unlock_irq(&tasklist_lock);
 	cgroup_cancel_fork(p);
+	task_integrity_cleanup(p);
 bad_fork_cgroup_threadgroup_change_end:
 	threadgroup_change_end(current);
-	task_integrity_cleanup(p);
 bad_fork_put_pidfd:
 	if (clone_flags & CLONE_PIDFD)
 		sys_close(pidfd);

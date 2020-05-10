@@ -285,7 +285,6 @@ static int suspend_prepare(suspend_state_t state)
 
 	error = __pm_notifier_call_chain(PM_SUSPEND_PREPARE, -1, &nr_calls);
 	if (error) {
-		log_suspend_abort_reason("Suspend_prepare failed(%d)", nr_calls);
 		nr_calls--;
 		goto Finish;
 	}

@@ -1661,7 +1661,7 @@ static void worker_enter_idle(struct worker *worker)
 		mod_timer(&pool->idle_timer, jiffies + IDLE_WORKER_TIMEOUT);
 
 	/*
-	 * Sanity check nr_running.  Because unbind_workers() releases
+	 * Sanity check nr_running.  Because wq_unbind_fn() releases
 	 * pool->lock between setting %WORKER_UNBOUND and zapping
 	 * nr_running, the warning may trigger spuriously.  Check iff
 	 * unbind is not in progress.
@@ -4566,8 +4566,9 @@ void show_workqueue_state(void)
  * cpu comes back online.
  */
 
-static void unbind_workers(int cpu)
+static void wq_unbind_fn(struct work_struct *work)
 {
+	int cpu = smp_processor_id();
 	struct worker_pool *pool;
 	struct worker *worker;
 
@@ -4764,13 +4765,12 @@ int workqueue_online_cpu(unsigned int cpu)
 
 int workqueue_offline_cpu(unsigned int cpu)
 {
+	struct work_struct unbind_work;
 	struct workqueue_struct *wq;
 
 	/* unbinding per-cpu workers should happen on the local CPU */
-	if (WARN_ON(cpu != smp_processor_id()))
-		return -1;
-
-	unbind_workers(cpu);
+	INIT_WORK_ONSTACK(&unbind_work, wq_unbind_fn);
+	queue_work_on(cpu, system_highpri_wq, &unbind_work);
 
 	/* update NUMA affinity of unbound workqueues */
 	mutex_lock(&wq_pool_mutex);
@@ -4778,6 +4778,9 @@ int workqueue_offline_cpu(unsigned int cpu)
 		wq_update_unbound_numa(wq, cpu, false);
 	mutex_unlock(&wq_pool_mutex);
 
+	/* wait for per-cpu unbinding to finish */
+	flush_work(&unbind_work);
+	destroy_work_on_stack(&unbind_work);
 	return 0;
 }
 
@@ -5462,8 +5465,12 @@ static void wq_watchdog_timer_fn(unsigned long data)
 
 	rcu_read_unlock();
 
-	if (lockup_detected)
+	if (lockup_detected) {
 		show_workqueue_state();
+#ifdef CONFIG_SEC_DEBUG_WORKQUEUE_LOCKUP_PANIC
+		BUG();
+#endif
+	}
 
 	wq_watchdog_reset_touched();
 	mod_timer(&wq_watchdog_timer, jiffies + thresh);
