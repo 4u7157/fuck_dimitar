@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/cryptouser.h>
+#include <linux/compiler.h>
 #include <net/netlink.h>
 
 #include "internal.h"
@@ -102,11 +103,6 @@ int blkcipher_walk_done(struct blkcipher_desc *desc,
 {
 	unsigned int n; /* bytes processed */
 	bool more;
-
-#ifdef CONFIG_CRYPTO_FIPS
-	if (unlikely(in_fips_err()))
-		return (-EACCES);
-#endif
 
 	if (unlikely(err < 0))
 		goto finish;
@@ -552,7 +548,7 @@ static int crypto_blkcipher_report(struct sk_buff *skb, struct crypto_alg *alg)
 #endif
 
 static void crypto_blkcipher_show(struct seq_file *m, struct crypto_alg *alg)
-	__attribute__ ((unused));
+	__maybe_unused;
 static void crypto_blkcipher_show(struct seq_file *m, struct crypto_alg *alg)
 {
 	seq_printf(m, "type         : blkcipher\n");

@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/cryptouser.h>
+#include <linux/compiler.h>
 #include <net/netlink.h>
 
 #include <crypto/scatterwalk.h>
@@ -107,11 +108,6 @@ int ablkcipher_walk_done(struct ablkcipher_request *req,
 	struct crypto_tfm *tfm = req->base.tfm;
 	unsigned int n; /* bytes processed */
 	bool more;
-
-#ifdef CONFIG_CRYPTO_FIPS
-	if (unlikely(in_fips_err()))
-		return -EACCES;
-#endif
 
 	if (unlikely(err < 0))
 		goto finish;
@@ -400,7 +396,7 @@ static int crypto_ablkcipher_report(struct sk_buff *skb, struct crypto_alg *alg)
 #endif
 
 static void crypto_ablkcipher_show(struct seq_file *m, struct crypto_alg *alg)
-	__attribute__ ((unused));
+	__maybe_unused;
 static void crypto_ablkcipher_show(struct seq_file *m, struct crypto_alg *alg)
 {
 	struct ablkcipher_alg *ablkcipher = &alg->cra_ablkcipher;
@@ -475,7 +471,7 @@ static int crypto_givcipher_report(struct sk_buff *skb, struct crypto_alg *alg)
 #endif
 
 static void crypto_givcipher_show(struct seq_file *m, struct crypto_alg *alg)
-	__attribute__ ((unused));
+	__maybe_unused;
 static void crypto_givcipher_show(struct seq_file *m, struct crypto_alg *alg)
 {
 	struct ablkcipher_alg *ablkcipher = &alg->cra_ablkcipher;
