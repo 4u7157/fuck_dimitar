@@ -48,7 +48,6 @@
 #include <linux/rkp.h>
 #endif
 #endif
-
 u64 idmap_t0sz = TCR_T0SZ(VA_BITS);
 
 u64 kimage_voffset __ro_after_init;
@@ -490,13 +489,9 @@ static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end
 	 * region accessible to subsystems such as hibernate, but
 	 * protects it from inadvertent modification or execution.
 	 */
-	// __create_pgd_mapping(pgd, kernel_start, __phys_to_virt(kernel_start),
-	// 		     kernel_end - kernel_start, PAGE_KERNEL_RO,
-	// 		     early_pgtable_alloc, !debug_pagealloc_enabled());
-	__create_pgd_mapping(pgd, __pa(_text), __phys_to_virt(__pa(_text)), (_etext - _text),
-		PAGE_KERNEL_RO, early_pgtable_alloc, !debug_pagealloc_enabled());
-	__create_pgd_mapping(pgd, __pa(__start_rodata), __phys_to_virt(__pa(__start_rodata)),
-		(__init_begin - __start_rodata), PAGE_KERNEL_RO, early_pgtable_alloc, !debug_pagealloc_enabled());
+	__create_pgd_mapping(pgd, kernel_start, __phys_to_virt(kernel_start),
+			     kernel_end - kernel_start, PAGE_KERNEL_RO,
+			     early_pgtable_alloc, !debug_pagealloc_enabled());
 }
 
 static void __init map_mem(pgd_t *pgd)
@@ -669,6 +664,7 @@ void __init paging_init(void)
 {
 	phys_addr_t pgd_phys;
 	pgd_t *pgd;
+
 #ifdef CONFIG_UH_RKP
 	phys_addr_t pa;
 	void *va;
@@ -689,7 +685,6 @@ void __init paging_init(void)
 	empty_zero_page = rkp_ro_alloc();
 	BUG_ON(empty_zero_page == NULL);
 #endif
-
 	map_kernel(pgd);
 	map_mem(pgd);
 
@@ -968,18 +963,13 @@ void *__init fixmap_remap_fdt(phys_addr_t dt_phys)
 
 int __init arch_ioremap_pud_supported(void)
 {
-	/*
-	 * Only 4k granule supports level 1 block mappings.
-	 * SW table walks can't handle removal of intermediate entries.
-	 */
-	return IS_ENABLED(CONFIG_ARM64_4K_PAGES) &&
-	       !IS_ENABLED(CONFIG_ARM64_PTDUMP_DEBUGFS);
+	/* only 4k granule supports level 1 block mappings */
+	return IS_ENABLED(CONFIG_ARM64_4K_PAGES);
 }
 
 int __init arch_ioremap_pmd_supported(void)
 {
-	/* See arch_ioremap_pud_supported() */
-	return !IS_ENABLED(CONFIG_ARM64_PTDUMP_DEBUGFS);
+	return 1;
 }
 
 int pud_set_huge(pud_t *pudp, phys_addr_t phys, pgprot_t prot)

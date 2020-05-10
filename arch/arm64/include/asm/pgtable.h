@@ -29,7 +29,6 @@
 #include <linux/rkp.h>
 #endif
 #endif
-
 /*
  * VMALLOC range.
  *
@@ -193,16 +192,6 @@ static inline pmd_t pmd_mkcont(pmd_t pmd)
 {
 	return __pmd(pmd_val(pmd) | PMD_SECT_CONT);
 }
-
-#ifdef CONFIG_TIMA_LKMAUTH
-#ifdef CONFIG_TIMA_LKMAUTH_CODE_PROT
-static inline pte_t pte_mknexec(pte_t pte)
-{
-	pte_val(pte) |= PTE_PXN;
-	return pte;
-}
-#endif
-#endif
 
 static inline void set_pte(pte_t *ptep, pte_t pte)
 {
