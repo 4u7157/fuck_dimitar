@@ -178,7 +178,6 @@ static inline int integrity_init_keyring(const unsigned int id)
 {
 	return 0;
 }
-
 #endif /* CONFIG_INTEGRITY_SIGNATURE */
 
 #ifdef CONFIG_INTEGRITY_ASYMMETRIC_KEYS

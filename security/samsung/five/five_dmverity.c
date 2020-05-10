@@ -204,7 +204,7 @@ exit:
 	return result;
 }
 
-#if defined(CONFIG_SAMSUNG_PRODUCT_SHIP) && !defined(CONFIG_FIVE_DEBUG)
+#ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 bool five_is_dmverity_protected(const struct file *file)
 {
 	enum five_dmverity_codes dmv_file_status;
@@ -235,8 +235,7 @@ bool five_is_dmverity_protected(const struct file *file)
 static bool is_dmverity_prebuit_path(const struct file *file)
 {
 	const char * const paths[] = {
-		"/system/", "/vendor/", "/apex/",
-		"/product/", "/odm/", "/prism/", "/optics/"
+		"/system/", "/vendor/", "/apex/"
 	};
 	const char *pathname = NULL;
 	char *pathbuf = NULL;
