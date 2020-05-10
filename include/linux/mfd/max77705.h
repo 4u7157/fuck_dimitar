@@ -65,7 +65,6 @@ struct max77705_platform_data {
 	int irq_base;
 	int irq_gpio;
 	bool wakeup;
-	int wpc_en;
 	struct muic_platform_data *muic_pdata;
 
 	int num_regulators;

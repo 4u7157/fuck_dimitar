@@ -20,12 +20,6 @@
 
 #define MAX77705_PD_NAME	"MAX77705_PD"
 
-enum {
-	CC_SNK = 0,
-	CC_SRC,
-	CC_NO_CONN,
-};
-
 struct max77705_pd_data {
 	/* interrupt pin */
 	int irq_pdmsg;
@@ -57,9 +51,6 @@ struct max77705_pd_data {
 	enum max77705_ccpd_device device;
 
 	bool pdo_list;
-	bool psrdy_received;
-
-	int cc_status;
 
 	/* wakelock */
 	struct wake_lock pdmsg_wake_lock;

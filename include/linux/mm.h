@@ -502,6 +502,20 @@ static inline int is_vmalloc_or_module_addr(const void *x)
 }
 #endif
 
+extern void *kvmalloc_node(size_t size, gfp_t flags, int node);
+static inline void *kvmalloc(size_t size, gfp_t flags)
+{
+	return kvmalloc_node(size, flags, NUMA_NO_NODE);
+}
+static inline void *kvzalloc_node(size_t size, gfp_t flags, int node)
+{
+	return kvmalloc_node(size, flags | __GFP_ZERO, node);
+}
+static inline void *kvzalloc(size_t size, gfp_t flags)
+{
+	return kvmalloc(size, flags | __GFP_ZERO);
+}
+
 extern void kvfree(const void *addr);
 
 static inline int compound_mapcount(struct page *page)
@@ -1952,7 +1966,6 @@ extern int min_free_kbytes;
 extern int watermark_scale_factor;
 
 /* vmscan.c */
-bool is_mem_boost_high(void);
 extern void reclaim_contig_migrate_range(unsigned long start,
 					 unsigned long end, bool drain);
 /* ion_rbin_heap.c */

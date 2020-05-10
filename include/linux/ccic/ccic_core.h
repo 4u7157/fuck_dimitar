@@ -35,27 +35,16 @@ enum {
 	CCIC_DOCK_NEW		= 200,  /* For New uevent */
 };
 
+#if defined(CONFIG_DUAL_ROLE_USB_INTF)
 typedef enum {
 	TYPE_C_DETACH = 0,
 	TYPE_C_ATTACH_DFP = 1, /* Host */
 	TYPE_C_ATTACH_UFP = 2, /* Device */
 	TYPE_C_ATTACH_DRP = 3, /* Dual role */
-	TYPE_C_ATTACH_SRC = 4, /* SRC */
-	TYPE_C_ATTACH_SNK = 5, /* SNK */
 } CCIC_OTP_MODE;
 
-#if defined(CONFIG_TYPEC)
-typedef enum {
-	TRY_ROLE_SWAP_NONE = 0,
-	TRY_ROLE_SWAP_PR = 1, /* pr_swap */
-	TRY_ROLE_SWAP_DR = 2, /* dr_swap */
-	TRY_ROLE_SWAP_TYPE = 3, /* type */
-} CCIC_ROLE_SWAP_MODE;
-
-#define TRY_ROLE_SWAP_WAIT_MS 5000
-#endif
-
 #define DUAL_ROLE_SET_MODE_WAIT_MS 1500
+#endif
 #define GEAR_VR_DETACH_WAIT_MS		1000
 
 #if defined(CONFIG_CCIC_NOTIFIER)
@@ -92,7 +81,7 @@ struct uvdm_data {
 	unsigned short pid; /* Product ID */
 	char type; /* uvdm_data_type */
 	char dir; /* uvdm_direction_type */
-	unsigned int size; /* data size */
+	int size; /* data size */
 	void __user *pData; /* data pointer */
 };
 
@@ -104,7 +93,6 @@ struct ccic_misc_dev {
 	int (*uvdm_read)(void *data);
 	int (*uvdm_ready)(void);
 	void (*uvdm_close)(void);
-	void (*dp_detach_cb)(void);
 };
 
 typedef struct _ccic_data_t {
@@ -117,13 +105,10 @@ typedef struct _ccic_data_t {
 
 int ccic_core_init(void);
 int ccic_core_register_chip(pccic_data_t pccic_data);
-void ccic_core_unregister_chip(void);
 int ccic_register_switch_device(int mode);
 void ccic_send_dock_intent(int type);
 void ccic_send_dock_uevent(u32 vid, u32 pid, int state);
 void *ccic_core_get_drvdata(void);
 int ccic_misc_init(pccic_data_t pccic_data);
-void ccic_misc_exit(void);
-extern unsigned int pn_flag;
 #endif
 

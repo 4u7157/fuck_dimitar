@@ -115,6 +115,7 @@ static inline int fscrypt_get_encryption_kek(struct inode *inode,
 {
 	return -EOPNOTSUPP;
 }
+
  /* fname.c */
 static inline int fscrypt_setup_filename(struct inode *dir,
 					 const struct qstr *iname,
@@ -239,4 +240,17 @@ static inline const char *fscrypt_get_symlink(struct inode *inode,
 	return ERR_PTR(-EOPNOTSUPP);
 }
 
+static inline int fscrypt_disk_encrypted(const struct inode *inode)
+{
+	return 0;
+}
+
+static inline void fscrypt_set_bio(const struct inode *inode, struct bio *bio, u64 dun)
+{
+}
+
+static inline void *fscrypt_get_diskcipher(const struct inode *inode)
+{
+	return NULL;
+}
 #endif	/* _LINUX_FSCRYPT_NOTSUPP_H */

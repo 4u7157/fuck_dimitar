@@ -21,9 +21,6 @@
 #include <linux/muic/muic.h>
 #include <linux/muic/max77705-muic.h>
 #include <linux/battery/battery_notifier.h>
-#if defined(CONFIG_TYPEC)
-#include <linux/usb/typec.h>
-#endif
 
 struct max77705_opcode {
 	unsigned char opcode;
@@ -45,7 +42,6 @@ typedef struct max77705_usbc_command_data {
 	u8	mask;
 	u8  seq;
 	int noti_cmd;
-	u8	is_uvdm;
 } usbc_cmd_data;
 
 typedef struct max77705_usbc_command_node {
@@ -62,23 +58,11 @@ typedef struct max77705_usbc_command_queue {
 	usbc_cmd_node			tmp_cmd_node;
 } usbc_cmd_queue_t;
 
-#if defined(CONFIG_SEC_FACTORY)
-#define FAC_ABNORMAL_REPEAT_STATE			12
-#define FAC_ABNORMAL_REPEAT_RID				5
-#define FAC_ABNORMAL_REPEAT_RID0			3
-struct AP_REQ_GET_STATUS_Type {
-	uint32_t FAC_Abnormal_Repeat_State;
-	uint32_t FAC_Abnormal_Repeat_RID;
-	uint32_t FAC_Abnormal_RID0;
-};
-#endif
-
 struct max77705_usbc_platform_data {
 	struct max77705_dev *max77705;
 	struct device *dev;
 	struct i2c_client *i2c; /*0xCC */
 	struct i2c_client *muic; /*0x4A */
-	struct i2c_client *charger; /*0x2A; Charger */
 
 	int irq_base;
 
@@ -106,7 +90,6 @@ struct max77705_usbc_platform_data {
 	u8 pd_status1;
 
 	int watchdog_count;
-	int por_count;
 
 	u8 opcode_res;
 	/* USBC System message interrupt */
@@ -151,14 +134,12 @@ struct max77705_usbc_platform_data {
 	u8 pin_assignment;
 	uint32_t is_sent_pin_configuration;
 	wait_queue_head_t host_turn_on_wait_q;
-	wait_queue_head_t dp_detach_wait_q;
 	int host_turn_on_event;
 	int host_turn_on_wait_time;
 	int is_samsung_accessory_enter_mode;
+	int send_vdm_identity;
 	u8 sbu[2];
-	struct completion ccic_sysfs_completion;
-//	u8 selftest;
-//	struct completion is_selftest_done;
+	u8 is_sbu_done;
 
 	struct max77705_muic_data *muic_data;
 	struct max77705_pd_data *pd_data;
@@ -180,7 +161,6 @@ struct max77705_usbc_platform_data {
 	int is_host;
 	int is_client;
 	bool auto_vbus_en;
-	u8 cc_pin_status;
 #endif
 #if defined(CONFIG_DUAL_ROLE_USB_INTF)
 	struct dual_role_phy_instance *dual_role;
@@ -189,42 +169,19 @@ struct max77705_usbc_platform_data {
 	int power_role;
 	int data_role;
 	int try_state_change;
-#elif defined(CONFIG_TYPEC)
-	struct typec_port *port;
-	struct typec_partner *partner;
-	struct usb_pd_identity partner_identity;
-	struct typec_capability typec_cap;
-	struct completion typec_reverse_completion;
-	int typec_power_role;
-	int typec_data_role;
-	int typec_try_state_change;
-	int pwr_opmode;
+	struct delayed_work role_swap_work;
 #endif
-	bool pd_support;
 	struct delayed_work usb_external_notifier_register_work;
 	struct notifier_block usb_external_notifier_nb;
 	int mpsm_mode;
 	int vbus_enable;
 	int pd_pr_swap;
-	int shut_down;
 	struct delayed_work vbus_hard_reset_work;
 	uint8_t ReadMSG[32];
-	int ram_test_enable;
-	int ram_test_retry;
-	int ram_test_result;
 	struct completion uvdm_longpacket_out_wait;
 	struct completion uvdm_longpacket_in_wait;
 	int is_in_first_sec_uvdm_req;
 	int is_in_sec_uvdm_out;
-	u8 uvdm_error;
-
-#if defined(CONFIG_SEC_FACTORY)
-	struct AP_REQ_GET_STATUS_Type factory_mode;
-	struct delayed_work factory_state_work;
-	struct delayed_work factory_rid_work;
-#endif
-	int detach_done_wait;
-	uint32_t dr_swap_cnt;
 };
 
 /* Function Status from s2mm005 definition */
@@ -238,17 +195,6 @@ typedef enum {
 	MPSM_OFF = 0,
 	MPSM_ON = 1,
 } CCIC_DEVICE_MPSM;
-
-#define DATA_ROLE_SWAP 1
-#define POWER_ROLE_SWAP 2
-#define VCONN_ROLE_SWAP 3
-#define MANUAL_ROLE_SWAP 4
-
-#define ROLE_ACCEPT			0x1
-#define ROLE_REJECT			0x2
-#define ROLE_BUSY			0x3
-
-#define DP_DETACH_WAIT_TIME		5000
 
 int max77705_pd_init(struct max77705_usbc_platform_data *usbc_data);
 int max77705_cc_init(struct max77705_usbc_platform_data *usbc_data);
@@ -279,22 +225,13 @@ void max77705_current_pdo(struct max77705_usbc_platform_data *usbc_data,
 		unsigned char *data);
 void max77705_detach_pd(struct max77705_usbc_platform_data *usbc_data);
 void max77705_notify_rp_current_level(struct max77705_usbc_platform_data *usbc_data);
-extern void max77705_manual_jig_on(struct max77705_usbc_platform_data *usbpd_data, int mode);
 extern void max77705_vbus_turn_on_ctrl(struct max77705_usbc_platform_data *usbc_data, bool enable, bool swaped);
 extern void max77705_dp_detach(void *data);
 void max77705_usbc_disable_auto_vbus(struct max77705_usbc_platform_data *usbc_data);
 extern void max77705_set_host_turn_on_event(int mode);
-#if defined(CONFIG_TYPEC)
-int max77705_get_pd_support(struct max77705_usbc_platform_data *usbc_data);
-#endif
 
 extern const uint8_t BOOT_FLASH_FW_PASS2[];
 extern const uint8_t BOOT_FLASH_FW_PASS3[];
-extern int dp_use_informed;
-
-#if defined(CONFIG_SEC_FACTORY)
-void factory_execute_monitor(int);
-#endif
 
 #define DEBUG_MAX77705
 #ifdef DEBUG_MAX77705

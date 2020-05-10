@@ -223,7 +223,7 @@ typedef struct {
 
 /* For Dex */
 #define TypeC_Dex_SUPPORT	(0x04E8)
-#define SWAP_UINT32(x) (((x) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | ((x) << 24))
+#define SWAP_UINT32(x) (((x) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24))
 
 /* For DP VDM Modes VDO Port_Capability */
 typedef enum {
@@ -270,8 +270,7 @@ typedef enum {
 	Discover_Modes	 	= 3,
 	Enter_Mode 		= 4,
 	Exit_Mode		= 5,
-	Attention		= 6,
-	Configure		= 17
+	Attention		= 6
 } VDM_HEADER_COMMAND;
 
 typedef enum {
@@ -424,7 +423,6 @@ enum VDM_MSG_IRQ_State {
 #define UVDM_PROTOCOL_ID		0xA028
 #define DEXPAD_PRODUCT_ID		0xA029
 #define MPA_PRODUCT_ID			0x2122
-#define FRIENDS_PRODUCT_ID		0xB002
 /* Samsung UVDM structure */
 #define SEC_UVDM_SHORT_DATA		0x0
 #define SEC_UVDM_LONG_DATA		0x1
@@ -539,11 +537,6 @@ typedef union {
 #define SEC_UVDM_RX_HEADER_ACK	0x0
 #define SEC_UVDM_RX_HEADER_NAK	0x1
 
-#define MAXIM_ENABLE_ALTERNATE_SRCCAP 0x1
-#define MAXIM_ENABLE_ALTERNATE_VDM	  0x2
-#define MAXIM_ENABLE_ALTERNATE_SRC_VDM	0x3
-#define MAXIM_DISABLE_ALTERNATE_SRC_VDM	0x0
-
 typedef union {
 	uint32_t DATA;
 	uint8_t  BYTES[4];
@@ -611,7 +604,7 @@ int max_uvdm_in_request_message(void *data);
 void max77705_send_dex_fan_unstructured_vdm_message(void *data, int cmd);
 void max77705_acc_detach_check(struct work_struct *work);
 void max77705_set_enable_alternate_mode(int mode);
-void max77705_vdm_process_set_samsung_alternate_mode(void *data, int mode);
+
 extern void max77705_vdm_process_set_identity_req(void *data);
 extern int max77705_sec_uvdm_in_request_message(void *data);
 extern int max77705_sec_uvdm_out_request_message(void *data, int size);

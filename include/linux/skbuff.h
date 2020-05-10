@@ -665,11 +665,7 @@ struct sk_buff {
 	 * want to keep them across layers you have to do a skb_clone()
 	 * first. This is owned by whoever has the skb queued ATM.
 	 */
-#ifdef CONFIG_MPTCP
-	char			cb[72] __aligned(8);
-#else
 	char			cb[48] __aligned(8);
-#endif
 
 	unsigned long		_skb_refdst;
 	void			(*destructor)(struct sk_buff *skb);
@@ -788,7 +784,7 @@ struct sk_buff {
 	__u32		secmark;
 #endif
 
-	__u32			priomark;
+	__u32		priomark;
 
 	union {
 		__u32		mark;

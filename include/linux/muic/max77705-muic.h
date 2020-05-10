@@ -24,14 +24,10 @@
 #ifndef __MAX77705_MUIC_H__
 #define __MAX77705_MUIC_H__
 
-#include <linux/workqueue.h>
-#include <linux/wakelock.h>
-
 #define MUIC_DEV_NAME			"muic-max77705"
 
 #define MUIC_IRQ_INIT_DETECT		(-1)
 #define MUIC_IRQ_CCIC_HANDLER		(-2)
-#define MUIC_IRQ_VBUS_WA		(-3)
 
 enum max77705_adc {
 	MAX77705_UIADC_GND		= 0x00,
@@ -41,8 +37,6 @@ enum max77705_adc {
 	MAX77705_UIADC_619K		= 0x06,
 	MAX77705_UIADC_OPEN		= 0x07,
 
-	MAX77705_UIADC_POGO_DOCK_9V	= 0xfc,
-	MAX77705_UIADC_POGO_DOCK	= 0xfd,
 	MAX77705_UIADC_DONTCARE		= 0xfe, /* ADC don't care for MHL */
 	MAX77705_UIADC_ERROR		= 0xff, /* ADC value read error */
 };
@@ -107,7 +101,6 @@ struct max77705_muic_data {
 	struct device			*dev;
 	struct i2c_client		*i2c; /* i2c addr: 0x4A; MUIC */
 	struct mutex			muic_mutex;
-	struct wake_lock		muic_wake_lock;
 
 	/* model dependent mfd platform data */
 	struct max77705_platform_data		*mfd_pdata;
@@ -143,19 +136,12 @@ struct max77705_muic_data {
 	bool				is_factory_start;
 	bool				is_check_hv;
 	bool				is_charger_ready;
-	bool				is_afc_reset;
-	bool				is_skip_bigdata;
 
 	u8				is_boot_dpdnvden;
 
 	struct delayed_work		afc_work;
 	struct work_struct		afc_handle_work;
 	unsigned char			afc_op_dataout[AFC_OP_OUT_LEN];
-	int				hv_voltage;
-	int				afc_retry;
-
- 	/* hiccup mode flag */
- 	int				is_hiccup_mode;
 
 	/* muic status value */
 	u8				status1;
@@ -166,15 +152,10 @@ struct max77705_muic_data {
 	u8                              status6;
 
 	struct delayed_work		debug_work;
-	struct delayed_work		vbus_wa_work;
 
 	/* Fake vbus flag */
 	int				fake_chgtyp;
 
-#if defined(CONFIG_MUIC_HV_SUPPORT_POGO_DOCK)
-	/* Pogo dock gpio */
-	int				dock_int_ap;
-#endif
 #if defined(CONFIG_USB_EXTERNAL_NOTIFY)
 	/* USB Notifier */
 	struct notifier_block		usb_nb;
@@ -290,8 +271,6 @@ enum {
 	/* Dedicated Charger (D+/D- shorted) */
 	CHGTYP_DEDICATED_CHARGER	= 0x03,
 
- 	/* Hiccup mode, Set D+/D- to GND */
- 	CHGTYP_HICCUP_MODE		= 0xfa,
 	/* DCD Timeout, Open D+/D- */
 	CHGTYP_TIMEOUT_OPEN		= 0xfb,
 	/* Any charger w/o USB */
@@ -336,6 +315,7 @@ enum {
 enum max77705_switch_val {
 	MAX77705_MUIC_NOBCCOMP_DIS	= 0x0,
 	MAX77705_MUIC_NOBCCOMP_EN	= 0x1,
+	MAX77705_MUIC_NOBCCOMP_VAL	= MAX77705_MUIC_NOBCCOMP_EN,
 
 	MAX77705_MUIC_RCPS_DIS		= 0x0,
 	MAX77705_MUIC_RCPS_EN		= 0x1,
@@ -350,23 +330,23 @@ enum max77705_switch_val {
 };
 
 enum {
-	COM_OPEN	= (MAX77705_MUIC_NOBCCOMP_DIS << NOBCCOMP_SHIFT) |
+	COM_OPEN	= (MAX77705_MUIC_NOBCCOMP_VAL << NOBCCOMP_SHIFT) |
 			(MAX77705_MUIC_RCPS_VAL << RCPS_SHIFT) |
 			(MAX77705_MUIC_COM_OPEN << COMP2SW_SHIFT) |
 			(MAX77705_MUIC_COM_OPEN << COMN1SW_SHIFT),
-	COM_USB		= (MAX77705_MUIC_NOBCCOMP_DIS << NOBCCOMP_SHIFT) |
+	COM_USB		= (MAX77705_MUIC_NOBCCOMP_VAL << NOBCCOMP_SHIFT) |
 			(MAX77705_MUIC_RCPS_VAL << RCPS_SHIFT) |
 			(MAX77705_MUIC_COM_USB << COMP2SW_SHIFT) |
 			(MAX77705_MUIC_COM_USB << COMN1SW_SHIFT),
-	COM_UART	= (MAX77705_MUIC_NOBCCOMP_EN << NOBCCOMP_SHIFT) |
+	COM_UART	= (MAX77705_MUIC_NOBCCOMP_VAL << NOBCCOMP_SHIFT) |
 			(MAX77705_MUIC_RCPS_VAL << RCPS_SHIFT) |
 			(MAX77705_MUIC_COM_UART << COMP2SW_SHIFT) |
 			(MAX77705_MUIC_COM_UART << COMN1SW_SHIFT),
-	COM_USB_CP	= (MAX77705_MUIC_NOBCCOMP_EN << NOBCCOMP_SHIFT) |
+	COM_USB_CP	= (MAX77705_MUIC_NOBCCOMP_VAL << NOBCCOMP_SHIFT) |
 			(MAX77705_MUIC_RCPS_VAL << RCPS_SHIFT) |
 			(MAX77705_MUIC_COM_USB_CP << COMP2SW_SHIFT) |
 			(MAX77705_MUIC_COM_USB_CP << COMN1SW_SHIFT),
-	COM_UART_CP	= (MAX77705_MUIC_NOBCCOMP_EN << NOBCCOMP_SHIFT) |
+	COM_UART_CP	= (MAX77705_MUIC_NOBCCOMP_VAL << NOBCCOMP_SHIFT) |
 			(MAX77705_MUIC_RCPS_VAL << RCPS_SHIFT) |
 			(MAX77705_MUIC_COM_UART_CP << COMP2SW_SHIFT) |
 			(MAX77705_MUIC_COM_UART_CP << COMN1SW_SHIFT),
@@ -381,13 +361,11 @@ extern int max77705_muic_suspend(struct max77705_usbc_platform_data *usbc_data);
 extern int max77705_muic_resume(struct max77705_usbc_platform_data *usbc_data);
 #if defined(CONFIG_HV_MUIC_MAX77705_AFC)
 extern bool max77705_muic_check_is_enable_afc(struct max77705_muic_data *muic_data, muic_attached_dev_t new_dev);
-extern void max77705_muic_clear_hv_control(struct max77705_muic_data *muic_data);
 extern void max77705_muic_afc_hv_set(struct max77705_muic_data *muic_data, int voltage);
 extern void max77705_muic_qc_hv_set(struct max77705_muic_data *muic_data, int voltage);
 extern void max77705_muic_handle_detect_dev_afc(struct max77705_muic_data *muic_data, unsigned char *data);
 extern void max77705_muic_handle_detect_dev_qc(struct max77705_muic_data *muic_data, unsigned char *data);
 extern void max77705_muic_handle_detect_dev_hv(struct max77705_muic_data *muic_data, unsigned char *data);
-extern void max77705_muic_disable_afc_protocol(struct max77705_muic_data *muic_data);
 #endif /* CONFIG_HV_MUIC_MAX77705_AFC */
 #if defined(CONFIG_MUIC_MAX77705_CCIC)
 extern void max77705_muic_register_ccic_notifier(struct max77705_muic_data *muic_data);

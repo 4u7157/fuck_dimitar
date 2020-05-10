@@ -94,9 +94,9 @@
  * REG_INT_M Initial values
  */
 #define REG_UIC_INT_M_INIT		0x04
-#define REG_CC_INT_M_INIT		0x20
-#define REG_PD_INT_M_INIT		0x00
-#define REG_VDM_INT_M_INIT		0xF0
+#define REG_CC_INT_M_INIT		0x00
+#define REG_PD_INT_M_INIT		0x1c
+#define REG_VDM_INT_M_INIT		0x00
 
 /*
  * REG_UIC_INT Interrupts
@@ -175,7 +175,6 @@
  * REG_PD_STATUS1
  */
 #define BIT_PD_DataRole			BIT(7)
-#define BIT_PD_PSRDY			BIT(4)
 #define BIT_FCT_ID				BITS(3, 0)
 
 /*
@@ -253,13 +252,6 @@ enum {
 	RFU,
 };
 
-enum {
-	NOT_IN_UFP_MODE = 0,
-	CCI_500mA,
-	CCI_1_5A,
-	CCI_3_0A,
-	CCI_SHORT,
-};
 
 /*
  * All type of Interrupts
@@ -374,14 +366,7 @@ enum max77705_usbc_SYSMsg {
 	SYSERROR_APCMD_INPROGRESS = 0x32,
 	SYSERROR_APCMD_FAIL = 0x33,
 
-	SYSMSG_CCx_5V_SHORT = 0x61,
-	SYSMSG_SBUx_GND_SHORT = 0x62,
-	SYSMSG_SBUx_5V_SHORT = 0x63,
-
 	SYSMSG_SET_GRL = 0x64,
-
-	SYSERROR_FACTORY_RID0 = 0x70,
-	SYSERROR_POWER_NEGO = 0x80,
 };
 
 enum max77705_pdmsg {
@@ -403,18 +388,12 @@ enum max77705_pdmsg {
 	Not_Supported_Received = 0x13,
 	Prswap_Snktosrc_Sent	= 0x14,
 	Prswap_Srctosnk_Sent	= 0x15,
-	HARDRESET_RECEIVED = 0x16,
+	Get_Hard_Reset = 0x16,
 	Get_Vbus_turn_on = 0x17,
 	Get_Vbus_turn_off = 0x18,
-	HARDRESET_SENT = 0x19,
-	PRSWAP_SRCTOSWAP = 0x1A,
-	PRSWAP_SWAPTOSNK = 0X1B,
-	PRSWAP_SNKTOSWAP = 0x1C,
-	PRSWAP_SWAPTOSRC = 0x1D,
 
 	Sink_PD_Disabled = 0x20,
 	Source_PD_Disabled = 0x21,
-	Current_Cable_Connected = 0x22,
 
 	Get_Source_Capabilities_Extended_Received = 0x30,
 	Get_Status_Received = 0x31,
@@ -457,14 +436,12 @@ enum max77705_connstat {
 #define MAX77705_AUTOIBUS_FW_AT_OFF	3
 #define MAX77705_AUTOIBUS_FW_OFF	2
 #define MAX77705_AUTOIBUS_AT_OFF	1
-#define MAX77705_AUTOIBUS_ON	0
 
 #define OPCODE_WAIT_TIMEOUT (3000) /* 3000ms */
 
 #define OPCODE_WRITE_COMMAND 0x21
 #define OPCODE_READ_COMMAND 0x51
 #define OPCODE_SIZE 1
-#define OPCODE_HEADER_SIZE 1
 #define OPCODE_DATA_LENGTH 32
 #define OPCODE_MAX_LENGTH (OPCODE_DATA_LENGTH + OPCODE_SIZE)
 #define OPCODE_WRITE 0x21
@@ -525,9 +502,6 @@ typedef enum {
 	OPCODE_SAMSUNG_ACC_COMMAND_RESPOND,
 	OPCODE_SAMSUNG_SECURE_KEY_REVOCATION,
 	OPCODE_SAMSUNG_FW_AUTOIBUS = 0x57,
-	OPCODE_READ_SELFTEST = 0x59,
-	OPCODE_GRL_COMMAND = 0x70,
-	OPCODE_RAM_TEST_COMMAND = 0xD1,
 	OPCODE_NONE = 0xff,
 } max77705_opcode_list;
 
@@ -556,6 +530,7 @@ typedef enum {
 
 /* SAMSUNG OPCODE */
 #define REG_NONE 0xff
-#define CCIC_IRQ_INIT_DETECT		(-1)
+
+
 #endif
 
