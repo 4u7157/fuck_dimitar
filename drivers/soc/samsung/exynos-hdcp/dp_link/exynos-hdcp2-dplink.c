@@ -25,6 +25,8 @@
 #include "exynos-hdcp2-dplink-auth.h"
 
 #define HDCP_AUTH_RETRY_COUNT	5
+#define HDCP_AUTH_REAUTH_COUNT	2
+
 #define RECVID_WIAT_RETRY_COUNT	5
 
 #if defined(CONFIG_HDCP2_EMULATION_MODE)
@@ -41,6 +43,8 @@ static struct hdcp_link_data *lk_data;
 extern struct hdcp_session_list g_hdcp_session_list;
 extern uint8_t rp_ready;
 uint8_t auth_end_flag;
+int drm_flag;
+int dp_link_flag;
 struct hdcp_sess_info ss_info;
 struct hdcp_link_info lk_info;
 
@@ -64,8 +68,8 @@ static char *hdcp_link_st_str[] = {
 
 int do_dplink_auth(struct hdcp_link_info *lk_handle)
 {
-	struct hdcp_session_node *ss_node = NULL;
-	struct hdcp_link_node *lk_node = NULL;
+	struct hdcp_session_node *ss_node;
+	struct hdcp_link_node *lk_node;
 	int ret = HDCP_SUCCESS;
 	int rval = TX_AUTH_SUCCESS;
 	uint32_t retry_recvid = 0;
@@ -232,16 +236,14 @@ int do_dplink_auth(struct hdcp_link_info *lk_handle)
 int hdcp_dplink_authenticate(void)
 {
 	int ret;
-	int i;
+	static int retry_cnt;
 
-	auth_end_flag = 0;
-	for (i = 0; i < HDCP_AUTH_RETRY_COUNT; i++) {
+	auth_end_flag = HDCP_AUTH_PROCESS_ON;
+	for (; retry_cnt < HDCP_AUTH_RETRY_COUNT; retry_cnt++) {
 		if (!rp_ready) {
 			hdcp_clear_session(ss_info.ss_id);
 			if (hdcp_session_open(&ss_info))
 				return -ENOMEM;
-			else 
-				hdcp_err("session open ss_id %d\n", ss_info.ss_id);
 
 			lk_info.ss_id = ss_info.ss_id;
 			if (hdcp_link_open(&lk_info, HDCP_LINK_TYPE_DP)) {
@@ -258,24 +260,85 @@ int hdcp_dplink_authenticate(void)
 
 		ret = do_dplink_auth(&lk_info);
 		if (ret == HDCP_SUCCESS) {
-			hdcp_err("Success HDCP authenticate done.\n");
+			hdcp_info("Success HDCP authenticate done.\n");
+			retry_cnt = 0;
 			return 0;
 		} else {
 			/* auth_end_flag flag check */
-			if (auth_end_flag == 1) {
+			if (auth_end_flag == HDCP_AUTH_PROCESS_STOP) {
 				hdcp_info("Stop authenticate.\n");
-				auth_end_flag = 0;
+				auth_end_flag = HDCP_AUTH_PROCESS_ON;
 				break;
 			}
-
 			/* retry */
 			dplink_clear_irqflag_all();
-			hdcp_err("HDCP auth failed. retry(%d)!\n", i);
-			continue;
+			hdcp_err("HDCP auth failed. retry(%d)!\n", retry_cnt);
+			retry_cnt++;
+			if (retry_cnt == HDCP_AUTH_REAUTH_COUNT) {
+				reset_dp_hdcp_module();
+			} else if (retry_cnt > HDCP_AUTH_REAUTH_COUNT) {
+				retry_cnt = 0;
+				break;
+			}
 		}
 	}
 
+	retry_cnt = 0;
 	return -EACCES;
+}
+
+int hdcp_dplink_auth_check(void)
+{
+	int ret;
+
+	if (drm_flag && dp_link_flag) {
+		ret = exynos_smc(SMC_DRM_HDCP_AUTH_INFO, DP_HDCP22_DISABLE, 0, 0);
+		dplink_clear_irqflag_all();
+		ret = hdcp_dplink_authenticate();
+		if (ret == 0)
+			dp_link_flag = HDCP_AUTH_PROCESS_DONE;
+
+		return ret;
+	}
+
+	return 1;
+}
+
+int hdcp_dplink_drm_flag_check(int flag)
+{
+	int ret = 0;
+	int i = 0;
+
+	if (flag == DRM_OFF) {
+		drm_flag = DRM_OFF;
+		return 0;
+	}
+
+	for (i = 0; i < 1000; i++) {
+		drm_flag = exynos_smc(SMC_CHECK_STREAM_TYPE_FALG, 0, 0, 0);
+		if (drm_flag)
+			break;
+		msleep(500);
+	}
+
+	if (drm_flag == DRM_SAME_STREAM_TYPE && dp_link_flag == HDCP_AUTH_PROCESS_DONE)
+		return 0;
+
+	ret = hdcp_dplink_auth_check();
+	return ret;
+}
+
+int hdcp_dplink_dp_link_flag_check(int flag)
+{
+	int ret = 0;
+
+	dp_link_flag = flag;
+#if defined(CONFIG_HDCP2_FUNC_TEST_MODE)
+	drm_flag = DRM_ON;
+#endif
+	ret = hdcp_dplink_auth_check();
+
+	return ret;
 }
 
 void hdcp_clear_session(uint32_t id)
@@ -288,7 +351,6 @@ void hdcp_clear_session(uint32_t id)
 	lk.lk_id = id;
 	hdcp_link_close(&lk);
 	hdcp_session_close(&ss);
-	hdcp_err("Displayport: HDCP session clear\n");
 }
 
 int hdcp_dplink_stream_manage(void)
@@ -351,18 +413,9 @@ int hdcp_dplink_cancel_auth(void)
 
 	hdcp_info("Cancel authenticate.\n");
 	ret = exynos_smc(SMC_DRM_HDCP_AUTH_INFO, DP_HDCP22_DISABLE, 0, 0);
-	auth_end_flag = 1;
+	auth_end_flag = HDCP_AUTH_PROCESS_STOP;
 
 	return dplink_set_integrity_fail();
-}
-
-void hdcp_dplink_clear_all(void)
-{
-	uint32_t ret = 0;
-
-	hdcp_info("HDCP flag clear\n");
-	ret = exynos_smc(SMC_DRM_HDCP_AUTH_INFO, DP_HDCP22_DISABLE, 0,0);
-	dplink_clear_irqflag_all();
 }
 
 int hdcp_dplink_is_auth_state(void)

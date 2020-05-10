@@ -34,23 +34,14 @@
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #endif
-#if defined(CONFIG_USB_NOTIFY_LAYER)
-#include <linux/usb_notify.h>
-#endif
-#ifdef CONFIG_CCIC_NOTIFIER
-#include <linux/ccic/ccic_core.h>
-#endif
+
 #include "phy-exynos-usbdrd.h"
 #include "phy-exynos-debug.h"
 
 static void __iomem *usbdp_combo_phy_reg;
-static int phy_isol_delayed;
+static int phy_isol_delayed, dp_use_informed;
 static struct regmap *reg_pmu_delayed;
 static u32 pmu_offset_delayed, pmu_offset_dp_delayed;
-int dp_use_informed, ldo_off_delayed;
-#ifdef CONFIG_CCIC_NOTIFIER
-struct ccic_misc_dev *get_ccic_misc_dev(void);
-#endif
 
 static int exynos_usbdrd_clk_prepare(struct exynos_usbdrd_phy *phy_drd)
 {
@@ -1152,6 +1143,7 @@ static void exynos_usbdrd_pipe3_init(struct exynos_usbdrd_phy *phy_drd)
 							phy_drd->usbphy_info.used_phy_port);
 		} else {
 			dev_err(phy_drd->dev, "non-DT: PHY CON Selection\n");
+			return;
 		}
 	}
 
@@ -1221,7 +1213,6 @@ static int exynos_usbdrd_phy_init(struct phy *phy)
 
 	/* UTMI or PIPE3 specific init */
 	inst->phy_cfg->phy_init(phy_drd);
-	dp_use_informed = 0;
 
 	return 0;
 }
@@ -1282,6 +1273,11 @@ static void exynos_usbdrd_pipe3_tune(struct exynos_usbdrd_phy *phy_drd,
 	int i;
 
 	dev_info(phy_drd->dev, "%s\n", __func__);
+
+	if (!ss_tune_param) {
+		dev_info(phy_drd->dev, "%s --\n", __func__);
+		return;
+	}
 
 	if (phy_state >= OTG_STATE_A_IDLE) {
 		/* for host mode */
@@ -1494,8 +1490,6 @@ static int exynos_usbdrd_phy_power_on(struct phy *phy)
 
 	inst->phy_cfg->phy_isol(inst, 0, inst->pmu_mask);
 
-	phy_isol_delayed = 0;
-
 	return 0;
 }
 
@@ -1522,11 +1516,7 @@ static int exynos_usbdrd_phy_power_off(struct phy *phy)
 
 void exynos_usbdrd_request_phy_isol(void)
 {
-#if defined(CONFIG_USB_NOTIFY_LAYER)
-	struct otg_notify *o_notify = get_otg_notify();
-	struct usb_notifier_platform_data *pdata = get_notify_data(o_notify);
-#endif
-	pr_info("[%s] phy_isol_delayed = %d, ldo_off_delayed = %d\n", __func__, phy_isol_delayed, ldo_off_delayed);
+	pr_info("[%s] phy_isol_delayed = %d\n", __func__, phy_isol_delayed);
 
 	if (!reg_pmu_delayed || !pmu_offset_dp_delayed)
 		return;
@@ -1538,34 +1528,21 @@ void exynos_usbdrd_request_phy_isol(void)
 		phy_isol_delayed = 0;
 		dp_use_informed = 0;
 	}
-#if defined(CONFIG_USB_NOTIFY_LAYER)
-	if (o_notify && ldo_off_delayed) {
-		pr_info("[%s] set_ldo_off\n", __func__);
-		o_notify->set_ldo_onoff(pdata, 0);
-		ldo_off_delayed = 0;
-	}
-#endif	
 }
 
 int exynos_usbdrd_inform_dp_use(int use, int lane_cnt)
 {
 	int ret = 0;
-#ifdef CONFIG_CCIC_NOTIFIER
-	struct ccic_misc_dev *c_dev = get_ccic_misc_dev();
-#endif
+
 	pr_info("[%s] dp use = %d, lane_cnt = %d\n", __func__, use, lane_cnt);
 
 	dp_use_informed = use;
-	
-#ifdef CONFIG_CCIC_NOTIFIER	
-	if(c_dev && !dp_use_informed)
-		c_dev->dp_detach_cb();
-#endif
 
 	if ((use == 1) && (lane_cnt == 4)) {
 		ret = xhci_portsc_set(0);
 		udelay(1);
 	}
+
 	return ret;
 }
 

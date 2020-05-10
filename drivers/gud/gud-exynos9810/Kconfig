@@ -19,7 +19,7 @@ config TRUSTONIC_TEE_LPAE
 config TRUSTONIC_TEE_DEBUG
     bool "Trustonic TEE driver debug mode"
     depends on TRUSTONIC_TEE
-    default y
+    default n
     ---help---
       Enable the debug mode in the Trustonic TEE Driver.
 
@@ -40,5 +40,10 @@ config TRUSTED_UI_TOUCH_ENABLE
     default y
     depends on TRUSTONIC_TRUSTED_UI
 
+config GUD_DRIVER_Q_LAUNCHING
+    bool "Trustonic for Q luanching"
+    default n
+
+#ExySp
 source "drivers/gud/gud-exynos9810/sec-os-ctrl/Kconfig"
 source "drivers/gud/gud-exynos9810/sec-os-booster/Kconfig"

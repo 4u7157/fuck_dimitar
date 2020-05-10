@@ -1694,7 +1694,7 @@ void decon_reg_configure_lcd(u32 id, struct decon_param *p)
 		if (lcd_info->dsc_cnt == 1)
 			d_path = (id == 0) ?
 				DPATH_DSCENC0_OUTFIFO0_DSIMIF0 :
-				DECON2_DSCENC2_OUTFIFO0_DPIF;
+				(enum decon_data_path)DECON2_DSCENC2_OUTFIFO0_DPIF;
 		else if (lcd_info->dsc_cnt == 2 && !id)
 			d_path = DPATH_DSCC_DSCENC01_OUTFIFO01_DSIMIF0;
 		else
@@ -1710,7 +1710,7 @@ void decon_reg_configure_lcd(u32 id, struct decon_param *p)
 		else
 			d_path = (id == 0) ?
 				DPATH_NOCOMP_OUTFIFO0_DSIMIF0 :
-				DECON2_NOCOMP_OUTFIFO0_DPIF;
+				(enum decon_data_path)DECON2_NOCOMP_OUTFIFO0_DPIF;
 
 		decon_reg_set_data_path(id, d_path, s_path);
 
@@ -1761,7 +1761,7 @@ static void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 		if (lcd_info->dsc_cnt == 1)
 			d_path = (id == 0) ?
 				DPATH_DSCENC0_OUTFIFO0_DSIMIF0 :
-				DECON2_DSCENC2_OUTFIFO0_DPIF;
+				(enum decon_data_path)DECON2_DSCENC2_OUTFIFO0_DPIF;
 		else if (lcd_info->dsc_cnt == 2 && !id)
 			d_path = DPATH_DSCC_DSCENC01_OUTFIFO01_DSIMIF0;
 		else
@@ -1777,7 +1777,7 @@ static void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 		else
 			d_path = (id == 0) ?
 				DPATH_NOCOMP_OUTFIFO0_DSIMIF0 :
-				DECON2_NOCOMP_OUTFIFO0_DPIF;
+				(enum decon_data_path)DECON2_NOCOMP_OUTFIFO0_DPIF;
 
 		decon_reg_set_data_path(id, d_path, s_path);
 
@@ -1844,9 +1844,6 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 int decon_reg_start(u32 id, struct decon_mode_info *psr)
 {
 	int ret = 0;
-
-	if (psr->out_type == DECON_OUT_DP)
-		displayport_reg_lh_p_ch_power(1);
 
 	decon_reg_direct_on_off(id, 1);
 	decon_reg_update_req_global(id);
@@ -1974,7 +1971,6 @@ int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
 	int ret = 0;
 
 	if (psr->out_type == DECON_OUT_DP) {
-		displayport_reg_set_interrupt_mask(VIDEO_FIFO_UNDER_FLOW_MASK, 0);
 		ret = decon_reg_stop_inst(id, dsi_idx, psr);
 		if (ret < 0)
 			decon_err("%s, failed to DP instant_stop\n", __func__);
@@ -2330,8 +2326,8 @@ const unsigned long decon_clocks_table[][CLK_ID_MAX] = {
 	/* VCLK, ECLK, ACLK, PCLK, DISP_PLL, resolution, MIC_ratio, DSC count */
 	{  71,   168, 400, 66,   71, 1080 * 1920,    MIC_COMP_BYPASS,  0},
 	{  63,   168, 400, 66,   63, 1440 * 2560, MIC_COMP_RATIO_1_2,  0},
-	{41.7, 137.5, 400, 66, 62.5, 1440 * 2560, MIC_COMP_RATIO_1_3,  0},
-	{ 141, 137.5, 400, 66,  141, 1440 * 2560,    MIC_COMP_BYPASS,  0},
+	{  41,   137, 400, 66,   62, 1440 * 2560, MIC_COMP_RATIO_1_3,  0},
+	{ 141,   137, 400, 66,  141, 1440 * 2560,    MIC_COMP_BYPASS,  0},
 	{  42,   337, 400, 66,   42, 1440 * 2560,    MIC_COMP_BYPASS,  1},
 	{  42,   168, 400, 66,   42, 1440 * 2560,    MIC_COMP_BYPASS,  2},
 };

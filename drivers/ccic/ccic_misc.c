@@ -30,17 +30,10 @@
 
 static struct ccic_misc_dev *c_dev;
 
+#define CCIC_MISC_DBG 1
 #define MAX_BUF 255
 #define NODE_OF_MISC "ccic_misc"
 #define CCIC_IOCTL_UVDM _IOWR('C', 0, struct uvdm_data)
-
-struct ccic_misc_dev *get_ccic_misc_dev(void)
-{
-	if (!c_dev)
-		return NULL;
-	return c_dev;
-}
-EXPORT_SYMBOL(get_ccic_misc_dev);
 
 static inline int _lock(atomic_t *excl)
 {
@@ -68,16 +61,10 @@ static int ccic_misc_open(struct inode *inode, struct file *file)
 		goto err;
 	}
 
-	if (pn_flag) {
-		pr_err("%s - error : powernego flag is setting\n", __func__);
-		ret = -EACCES;
-		goto err;
-	}
-
 	if (_lock(&c_dev->open_excl)) {
 		pr_err("%s - error : device busy\n", __func__);
 		ret = -EBUSY;
-		goto err;
+		goto err1;
 	}
 
 	/* check if there is some connection */
@@ -85,12 +72,13 @@ static int ccic_misc_open(struct inode *inode, struct file *file)
 		_unlock(&c_dev->open_excl);
 		pr_err("%s - error : uvdm is not ready\n", __func__);
 		ret = -EBUSY;
-		goto err;
+		goto err1;
 	}
 
 	pr_info("%s - open success\n", __func__);
 
 	return 0;
+err1:
 err:
 	return ret;
 }
@@ -126,18 +114,15 @@ static long
 ccic_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
-	void *buf = NULL;
-
-	if (pn_flag) {
-		pr_err("%s - error : powernego flag is setting\n", __func__);
-		ret = -EACCES;
-		goto err2;
-	}
+	void *buf;
+#if CCIC_MISC_DBG
+	uint8_t *p_buf;
+	int i;
+#endif
 
 	if (_lock(&c_dev->ioctl_excl)) {
 		pr_err("%s - error : ioctl busy - cmd : %d\n", __func__, cmd);
-		ret = -EBUSY;
-		goto err2;
+		return  -EBUSY;
 	}
 
 	switch (cmd) {
@@ -147,21 +132,11 @@ ccic_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				sizeof(struct uvdm_data))) {
 			ret = -EIO;
 			pr_err("%s - copy_from_user error\n", __func__);
-			goto err1;
-		}
-
-		buf = kzalloc(MAX_BUF, GFP_KERNEL);
-		if (!buf) {
-			ret = -EINVAL;
-			pr_err("%s - kzalloc error\n", __func__);
-			goto err1;
-		}
-
-		if (c_dev->u_data.size > MAX_BUF) {
-			ret = -ENOMEM;
-			pr_err("%s - user data size is %d error\n", __func__, c_dev->u_data.size);
 			goto err;
 		}
+		buf = kzalloc(MAX_BUF, GFP_KERNEL);
+		if (!buf)
+			return -EINVAL;
 
 		if (c_dev->u_data.dir == DIR_OUT) {
 			if (copy_from_user(buf, c_dev->u_data.pData, c_dev->u_data.size)) {
@@ -169,6 +144,13 @@ ccic_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				pr_err("%s - copy_from_user error\n", __func__);
 				goto err;
 			}
+#if CCIC_MISC_DBG
+			pr_info("%s = send_uvdm_message - size : %d\n", __func__, c_dev->u_data.size);
+			p_buf = buf;
+			for (i = 0 ; i < c_dev->u_data.size ; i++)
+				pr_info("%x ", (uint32_t)p_buf[i]);
+			pr_info("\n");
+#endif
 			ret = send_uvdm_message(buf, c_dev->u_data.size);
 			if (ret < 0) {
 				pr_err("%s - send_uvdm_message error\n", __func__);
@@ -176,12 +158,22 @@ ccic_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				goto err;
 			}
 		} else {
+#if CCIC_MISC_DBG
+			pr_info("%s = received_uvdm_message - size : %d\n", __func__, c_dev->u_data.size);
+#endif
 			ret = receive_uvdm_message(buf, c_dev->u_data.size);
 			if (ret < 0) {
 				pr_err("%s - receive_uvdm_message error\n", __func__);
 				ret = -EINVAL;
 				goto err;
 			}
+#if CCIC_MISC_DBG
+			p_buf = buf;
+			pr_info("%s = received_uvdm_message - ret : %d\n", __func__, ret);
+			for (i = 0; i < ret ; i++)
+				pr_info("%x ", (uint32_t)p_buf[i]);
+			pr_info("\n");
+#endif
 			if (copy_to_user((void __user *)c_dev->u_data.pData,
 					 buf, ret)) {
 				ret = -EIO;
@@ -198,9 +190,7 @@ ccic_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 err:
 	kfree(buf);
-err1:
 	_unlock(&c_dev->ioctl_excl);
-err2:
 	return ret;
 }
 

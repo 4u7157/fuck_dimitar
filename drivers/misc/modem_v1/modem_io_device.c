@@ -31,7 +31,6 @@
 
 #include "modem_prj.h"
 #include "modem_utils.h"
-#include "modem_klat.h"
 
 static u8 sipc5_build_config(struct io_device *iod, struct link_device *ld,
 			     unsigned int count);
@@ -372,9 +371,6 @@ static int rx_multi_pdp(struct sk_buff *skb)
 	skb_reset_network_header(skb);
 	skb_reset_mac_header(skb);
 
-	/* klat */
-	klat_rx(skb, skbpriv(skb)->sipc_ch - SIPC_CH_ID_PDP_0);
-
 	if (check_gro_support(skb)) {
 		ret = napi_gro_receive(napi_get_current(), skb);
 		if (ret == GRO_DROP) {
@@ -436,9 +432,10 @@ static int rx_demux(struct link_device *ld, struct sk_buff *skb)
 		return -ENODEV;
 	}
 
-	if (sipc5_fmt_ch(ch))
+	if (sipc5_fmt_ch(ch)) {
+		iod->mc->receive_first_ipc = 1;
 		return rx_fmt_ipc(skb);
-	else if (sipc_ps_ch(ch))
+	} else if (sipc_ps_ch(ch))
 		return rx_multi_pdp(skb);
 	else
 		return rx_raw_misc(skb);
@@ -972,7 +969,7 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 		return -EINVAL;
 
 	if (unlikely(!cp_online(mc)) &&
-			(sipc5_ipc_ch(iod->id) || sipc5_dm_ch(iod->id))) {
+			(sipc5_ipc_ch(iod->id) || sipc5_log_ch(iod->id))) {
 		mif_debug("%s: ERR! %s->state == %s\n",
 			iod->name, mc->name, mc_state(mc));
 		return -EPERM;
@@ -985,6 +982,9 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 		cfg = 0;
 		headroom = 0;
 	}
+
+	if (unlikely(!mc->receive_first_ipc) && sipc5_log_ch(iod->id))
+		return -EBUSY;
 
 	while (copied < cnt) {
 		remains = cnt - copied;

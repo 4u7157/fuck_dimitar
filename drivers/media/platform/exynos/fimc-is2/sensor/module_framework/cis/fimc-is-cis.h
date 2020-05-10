@@ -58,6 +58,7 @@ enum i2c_write {
 
 int sensor_cis_set_registers(struct v4l2_subdev *subdev, const u32 *regs, const u32 size);
 int sensor_cis_set_registers_addr8(struct v4l2_subdev *subdev, const u32 *regs, const u32 size);
+int sensor_cis_check_rev_on_init(struct v4l2_subdev *subdev);
 int sensor_cis_check_rev(struct fimc_is_cis *cis);
 
 u32 sensor_cis_calc_again_code(u32 permile);

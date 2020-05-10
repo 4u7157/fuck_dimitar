@@ -43,23 +43,6 @@ enum max77705_vempty_mode {
 	VEMPTY_MODE_SW_RECOVERY,
 };
 
-enum {
-	FG_DATA,
-};
-
-ssize_t max77705_fg_show_attrs(struct device *dev,
-				struct device_attribute *attr, char *buf);
-
-ssize_t max77705_fg_store_attrs(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count);
-
-#define MAX77705_FG_ATTR(_name)				\
-{							\
-	.attr = {.name = #_name, .mode = 0660},	\
-	.show = max77705_fg_show_attrs,			\
-	.store = max77705_fg_store_attrs,			\
-}
 struct sec_fg_info {
 	/* test print count */
 	int pr_cnt;
@@ -151,8 +134,6 @@ struct battery_data_t {
 #define POWER_OFF_VOLTAGE_HIGH_MARGIN	3500
 #define POWER_OFF_VOLTAGE_LOW_MARGIN	3400
 
-#define LEARNING_QRTABLE 0x0001
-
 struct cv_slope {
 	int fg_current;
 	int soc;
@@ -207,7 +188,6 @@ struct max77705_fuelgauge_data {
 	bool using_hw_vempty;
 	unsigned int vempty_mode;
 	int temperature;
-	bool vempty_init_flag;
 
 	int low_temp_limit;
 

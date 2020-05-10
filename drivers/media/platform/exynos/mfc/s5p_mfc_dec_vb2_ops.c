@@ -179,19 +179,6 @@ static int s5p_mfc_dec_buf_init(struct vb2_buffer *vb)
 		if (ret < 0)
 			return ret;
 
-		if (dec->dynamic_used & (1 << buf->vb.vb2_buf.index)) {
-			for (i = 0; i < ctx->dst_fmt->mem_planes; i++) {
-				mfc_err_dev("ref buf[%d] plane[%d] %#08llx->%#08llx\n",
-						buf->vb.vb2_buf.index,
-						i, buf->planes.raw[i],
-						s5p_mfc_mem_get_daddr_vb(vb, i));
-				MFC_TRACE_DEV("ref buf[%d] plane[%d] %#08llx->%#08llx\n",
-						buf->vb.vb2_buf.index,
-						i, buf->planes.raw[i],
-						s5p_mfc_mem_get_daddr_vb(vb, i));
-			}
-		}
-
 		start_raw = s5p_mfc_mem_get_daddr_vb(vb, 0);
 		if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_NV12N) {
 			buf->planes.raw[0] = start_raw;
@@ -465,7 +452,7 @@ static void mfc_dec_dst_stop_streaming(struct s5p_mfc_ctx *ctx)
 
 	dec->dynamic_used = 0;
 	dec->err_reuse_flag = 0;
-	dec->dec_only_release_flag = 0;	
+	dec->dec_only_release_flag = 0;
 
 	s5p_mfc_cleanup_queue(&ctx->buf_queue_lock, &ctx->dst_buf_queue);
 

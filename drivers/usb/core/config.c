@@ -262,7 +262,7 @@ static int usb_parse_endpoint(struct device *ddev, int cfgno,
 	buffer += d->bLength;
 	size -= d->bLength;
 
-	if ((d->bmAttributes & 0x3) == 0x1) {
+	if (( d->bmAttributes & 0x3 ) == 0x1) {
 		if (d->bEndpointAddress & USB_ENDPOINT_DIR_MASK) {
 			to_usb_device(ddev)->hwinfo.in_ep = d->bEndpointAddress;
 			dev_info(ddev, " This is IN ISO endpoint #0%x \n", d->bEndpointAddress);

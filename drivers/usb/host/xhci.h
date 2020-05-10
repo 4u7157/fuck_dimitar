@@ -1693,12 +1693,11 @@ struct xhci_hcd {
 /* For controller with a broken Port Disable implementation */
 #define XHCI_BROKEN_PORT_PED	(1 << 25)
 #define XHCI_LIMIT_ENDPOINT_INTERVAL_7	(1 << 26)
-/* Reserved. It was XHCI_U2_DISABLE_WAKE */
+#define XHCI_U2_DISABLE_WAKE	(1 << 27)
 #define XHCI_ASMEDIA_MODIFY_FLOWCONTROL	(1 << 28)
 /* For setting hub suspend delay to 2s from 0s */
 #define XHCI_L2_SUPPORT	(1 << 30)
-/* For enabling USB2.0 L1 mode */
-#define XHCI_LPM_L1_SUPPORT	(1 << 31)
+
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */

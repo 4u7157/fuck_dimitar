@@ -44,7 +44,7 @@
 static void max77705_muic_init_ccic_info_data(struct max77705_muic_data *muic_data)
 {
 	pr_info("%s\n", __func__);
-	muic_data->ccic_info_data.ccic_evt_rid = RID_OPEN;
+	muic_data->ccic_info_data.ccic_evt_rid = RID_UNDEFINED;
 	muic_data->ccic_info_data.ccic_evt_rprd = 0;
 	muic_data->ccic_info_data.ccic_evt_roleswap = 0;
 	muic_data->ccic_info_data.ccic_evt_dcdcnt = 0;
@@ -53,11 +53,7 @@ static void max77705_muic_init_ccic_info_data(struct max77705_muic_data *muic_da
 
 static void max77705_muic_handle_ccic_detach(struct max77705_muic_data *muic_data)
 {
-	pr_info("%s\n", __func__);
-	muic_data->ccic_info_data.ccic_evt_rprd = 0;
-	muic_data->ccic_info_data.ccic_evt_roleswap = 0;
-	muic_data->ccic_info_data.ccic_evt_dcdcnt = 0;
-	muic_data->ccic_info_data.ccic_evt_attached = MUIC_CCIC_NOTI_DETACH;
+	max77705_muic_init_ccic_info_data(muic_data);
 }
 
 static int max77705_muic_handle_ccic_ATTACH(struct max77705_muic_data *muic_data, CC_NOTI_ATTACH_TYPEDEF *pnoti)
@@ -67,11 +63,13 @@ static int max77705_muic_handle_ccic_ATTACH(struct max77705_muic_data *muic_data
 	pr_info("%s: src:%d dest:%d id:%d attach:%d cable_type:%d rprd:%d\n", __func__,
 		pnoti->src, pnoti->dest, pnoti->id, pnoti->attach, pnoti->cable_type, pnoti->rprd);
 
-	/* Attached */
-	if (pnoti->attach) {
-		pr_info("%s: Attach, cable type=%d\n", __func__, pnoti->cable_type);
+	muic_data->ccic_info_data.ccic_evt_attached = pnoti->attach ?
+		MUIC_CCIC_NOTI_ATTACH : MUIC_CCIC_NOTI_DETACH;
 
-		muic_data->ccic_info_data.ccic_evt_attached = MUIC_CCIC_NOTI_ATTACH;
+	/* Attached */
+	if (muic_data->ccic_info_data.ccic_evt_attached == MUIC_CCIC_NOTI_ATTACH) {
+		pr_info("%s: Attach\n", __func__);
+		pr_info("%s: cable type=%d\n", __func__, pnoti->cable_type);
 
 		if (muic_data->ccic_info_data.ccic_evt_roleswap) {
 			pr_info("%s: roleswap event, attach USB\n", __func__);
@@ -157,11 +155,8 @@ static int max77705_muic_handle_ccic_WATER(struct max77705_muic_data *muic_data,
 		muic_data->afc_water_disable = true;
 		pr_info("%s: Water detect, do workqueue\n", __func__);
 		schedule_work(&(muic_data->ccic_info_data_work));
-	} else if (pnoti->attach == CCIC_NOTIFY_DETACH) {
-		muic_data->afc_water_disable = false;
-		muic_data->ccic_evt_id = CCIC_NOTIFY_ID_WATER;
-		schedule_work(&(muic_data->ccic_info_data_work));
-		pr_info("%s: Dry detect, do workqueue\n", __func__);
+	} else {
+		pr_info("%s: Undefined notification, Discard\n", __func__);
 	}
 
 	return 0;

@@ -139,20 +139,20 @@ int sensor_module_init(struct v4l2_subdev *subdev, u32 val)
 			goto p_err;
 		}
 	}
-
-	ret = CALL_CISOPS(&sensor_peri->cis, cis_check_rev, subdev_cis);
+	ret = CALL_CISOPS(&sensor_peri->cis, cis_check_rev_on_init, subdev_cis);
 	if (ret < 0) {
 		device = (struct fimc_is_device_sensor *)v4l2_get_subdev_hostdata(subdev_cis);
 		if (device != NULL && ret == -EAGAIN) {
 			err("Checking sensor revision is fail. So retry camera power sequence.");
 			sensor_module_power_reset(subdev, device);
-			ret = CALL_CISOPS(&sensor_peri->cis, cis_check_rev, subdev_cis);
+			ret = CALL_CISOPS(&sensor_peri->cis, cis_check_rev_on_init, subdev_cis);
 			if (ret < 0) {
 #ifdef USE_CAMERA_HW_BIG_DATA
 				fimc_is_sec_get_hw_param(&hw_param, sensor_peri->module->position);
 				if (hw_param)
 					hw_param->i2c_sensor_err_cnt++;
 #endif
+				goto p_err;
 			}
 		}
 	}
@@ -745,49 +745,30 @@ int sensor_module_s_ext_ctrls(struct v4l2_subdev *subdev, struct v4l2_ext_contro
 				goto p_err;
 			}
 			break;
-
-		case V4L2_CID_IS_GET_DUAL_CAL: {
-#ifdef CAMERA_MODULE_DUAL_CAL_AVAILABLE_VERSION
+		case V4L2_CID_IS_GET_DUAL_CAL:
+		{
+#if defined(CONFIG_VENDER_MCD)
 			char *dual_cal = NULL;
-			struct fimc_is_from_info *finfo = NULL;
-			bool ver_valid = false;
 			int cal_size = 0;
 
-			fimc_is_sec_get_sysfs_finfo(&finfo);
-			ver_valid = fimc_is_sec_check_from_ver(core, SENSOR_POSITION_REAR);
-			if (ver_valid == false || finfo->header_ver[10] < CAMERA_MODULE_DUAL_CAL_AVAILABLE_VERSION) {
-				err("FROM version is low. Not apply dual cal.");
-				ret = -EINVAL;
-				goto p_err;
-			} else {
-				char *cal_buf;
-				u8 dummy_flag = 0;
+			ret = fimc_is_get_dual_cal_buf(device->position, &dual_cal, &cal_size);
 
-				fimc_is_sec_get_cal_buf(&cal_buf);
-				dummy_flag = cal_buf[FROM_REAR2_FLAG_DUMMY_ADDR];
-
-				if (dummy_flag == 7) {
-					fimc_is_get_rear_dual_cal_buf(&dual_cal, &cal_size);
-					ret = copy_to_user(ext_ctrl->ptr, dual_cal, cal_size);
-					if (ret) {
-						err("failed copying %d bytes of data\n", ret);
-						ret = -EINVAL;
-						goto p_err;
-					}
-				} else {
-					err("invalid dummy_flag in dual cal.(%d)", dummy_flag);
+			if (ret == 0) {
+				info("dual cal[%d] : ver[%d]", device->position, *((s32 *)dual_cal));
+				ret = copy_to_user(ext_ctrl->ptr, dual_cal, cal_size);
+				if (ret) {
+					err("failed copying %d bytes of data\n", ret);
 					ret = -EINVAL;
 					goto p_err;
 				}
+			} else {
+				err("failed to fimc_is_get_dual_cal_buf : %d\n", ret);
+				ret = -EINVAL;
+				goto p_err;
 			}
-#else
-			err("Available version is not defined. Not apply dual cal.");
-			ret = -EINVAL;
-			goto p_err;
 #endif
 			break;
 		}
-
 		default:
 			ctrl.id = ext_ctrl->id;
 			ctrl.value = ext_ctrl->value;

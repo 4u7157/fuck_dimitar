@@ -100,9 +100,6 @@ static const struct max77705_irq_data max77705_irqs[] = {
 	[MAX77705_PD_IRQ_PDMSG_INT] = { .group = PD_INT, .mask = 1 << 7 },
 	[MAX77705_PD_IRQ_PS_RDY_INT] = { .group = PD_INT, .mask = 1 << 6 },
 	[MAX77705_PD_IRQ_DATAROLE_INT] = { .group = PD_INT, .mask = 1 << 5 },
-	[MAX77705_IRQ_VDM_ATTENTION_INT] = { .group = PD_INT, .mask = 1 << 4 },
-	[MAX77705_IRQ_VDM_DP_CONFIGURE_INT] = { .group = PD_INT, .mask = 1 << 3 },
-	[MAX77705_IRQ_VDM_DP_STATUS_UPDATE_INT] = { .group = PD_INT, .mask = 1 << 2 },
 	[MAX77705_PD_IRQ_SSACCI_INT] = { .group = PD_INT, .mask = 1 << 1 },
 	[MAX77705_PD_IRQ_FCTIDI_INT] = { .group = PD_INT, .mask = 1 << 0 },
 
@@ -110,6 +107,10 @@ static const struct max77705_irq_data max77705_irqs[] = {
 	[MAX77705_IRQ_VDM_DISCOVER_SVIDS_INT] = { .group = VDM_INT, .mask = 1 << 1 },
 	[MAX77705_IRQ_VDM_DISCOVER_MODES_INT] = { .group = VDM_INT, .mask = 1 << 2 },
 	[MAX77705_IRQ_VDM_ENTER_MODE_INT] = { .group = VDM_INT, .mask = 1 << 3 },
+	[MAX77705_IRQ_VDM_DP_STATUS_UPDATE_INT] = { .group = VDM_INT, .mask = 1 << 4 },
+	[MAX77705_IRQ_VDM_DP_CONFIGURE_INT] = { .group = VDM_INT, .mask = 1 << 5 },
+	[MAX77705_IRQ_VDM_ATTENTION_INT] = { .group = VDM_INT, .mask = 1 << 6 },
+	[MAX77705_IRQ_UVDMI_INT] = { .group = VDM_INT, .mask = 1 << 7 },
 };
 
 static void max77705_irq_lock(struct irq_data *data)
@@ -184,8 +185,6 @@ static struct irq_chip max77705_irq_chip = {
 	.irq_disable            = max77705_irq_disable,
 };
 
-#define VB_LOW 0
-
 static irqreturn_t max77705_irq_thread(int irq, void *data)
 {
 	struct max77705_dev *max77705 = data;
@@ -197,11 +196,6 @@ static irqreturn_t max77705_irq_thread(int irq, void *data)
 	u8 dump_reg[10] = {0, };
 	u8 pmic_rev = max77705->pmic_rev;
 	u8 reg_data;
-	u8 cc_status0 = 0;
-	u8 bc_status0 = 0;
-	u8 ccstat = 0;
-	u8 vbvolt = 0;
-	u8 pre_ccstati = 0;
 
 	pr_debug("%s: irq gpio pre-state(0x%02x)\n", __func__,
 				gpio_get_value(max77705->irq_gpio));
@@ -308,21 +302,9 @@ static irqreturn_t max77705_irq_thread(int irq, void *data)
 					3, &irq_reg[USBC_INT]);
 			ret = max77705_read_reg(max77705->muic, MAX77705_USBC_REG_VDM_INT_M,
 					&irq_vdm_mask);
-			if (irq_vdm_mask == 0xF0)
+			if (irq_vdm_mask == 0x0)
 				ret = max77705_read_reg(max77705->muic, MAX77705_USBC_REG_VDM_INT,
 						&irq_reg[VDM_INT]);
-			if (irq_reg[USBC_INT] & BIT_VBUSDetI) {
-				ret = max77705_read_reg(max77705->muic, REG_BC_STATUS, &bc_status0);
-				ret = max77705_read_reg(max77705->muic, REG_CC_STATUS0, &cc_status0);
-				vbvolt = (bc_status0 & BIT_VBUSDet) >> FFS(BIT_VBUSDet);
-				ccstat = (cc_status0 & BIT_CCStat) >> FFS(BIT_CCStat);
-				if (cc_No_Connection == ccstat && vbvolt == VB_LOW) {
-					pre_ccstati = irq_reg[CC_INT];
-					irq_reg[CC_INT] |= 0x1;
-					pr_info("[MAX77705] set the cc_stat int [work-around] :%x, %x\n",
-						pre_ccstati,irq_reg[CC_INT]);
-				}
-			}
 			break;
 		default:
 			pr_err("%s: PMIC_REVISION(SRC_MUIC) isn't valid\n", __func__);

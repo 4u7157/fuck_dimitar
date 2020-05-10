@@ -31,6 +31,12 @@ config EXYNOS_PD
 	depends on PM
 	select PM_GENERIC_DOMAINS
 
+config EPX
+	bool "Enable Exynos Performance Box"
+	default y
+	depends on ARCH_EXYNOS
+	depends on !(USE_SIGNED_BINARY)
+
 config EXYNOS_RGT
 	bool "Exynos Regulator Debug Support"
 	depends on REGULATOR
@@ -181,12 +187,6 @@ config EXYNOS_SECURE_LOG
 	help
 	  Support Exynos Secure Log
 
-config SAMSUNG_VST_CAL
-	bool "Support NAD VST Calibration"
-	default n
-	help
-	  Support NAD VST Calibration
-
 config EXYNOS_KERNEL_PROTECTION
 	bool "Exynos Kernel Code Protection"
 	help
@@ -208,4 +208,5 @@ config SENSORS_FP_USI_NUMBER
 	depends on SENSORS_FINGERPRINT
 	int "Fingerprint usi gpio number"
 	default 0
+
 endif

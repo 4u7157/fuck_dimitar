@@ -28,9 +28,6 @@
 enum {
 	CHIP_ID = 0,
 	DATA,
-#if defined(CONFIG_CHARGER_MAX77705_OTG_LIMIT)
-	CPU_MAX_FREQ,
-#endif
 };
 
 ssize_t max77705_chg_show_attrs(struct device *dev,
@@ -140,10 +137,6 @@ ssize_t max77705_chg_store_attrs(struct device *dev,
 #define CHG_CNFG_01_FCHGTIME_MASK			(0x7 << CHG_CNFG_01_FCHGTIME_SHIFT)
 #define MAX77705_FCHGTIME_DISABLE			0x0
 
-#define CHG_CNFG_01_RECYCLE_EN_SHIFT	3
-#define CHG_CNFG_01_RECYCLE_EN_MASK	(0x1 << CHG_CNFG_01_RECYCLE_EN_SHIFT)
-#define MAX77705_RECYCLE_EN_ENABLE	0x1
-
 #define CHG_CNFG_01_CHG_RSTRT_SHIFT	4
 #define CHG_CNFG_01_CHG_RSTRT_MASK	(0x3 << CHG_CNFG_01_CHG_RSTRT_SHIFT)
 #define MAX77705_CHG_RSTRT_DISABLE	0x3
@@ -154,12 +147,6 @@ ssize_t max77705_chg_store_attrs(struct device *dev,
 #define MAX77705_CHG_PQEN_ENABLE		0x1
 
 /* MAX77705_CHG_REG_CHG_CNFG_02 */
-#define CHG_CNFG_02_OTG_ILIM_SHIFT		6
-#define CHG_CNFG_02_OTG_ILIM_MASK		(0x3 << CHG_CNFG_02_OTG_ILIM_SHIFT)
-#define MAX77705_OTG_ILIM_500		0x0
-#define MAX77705_OTG_ILIM_900		0x1
-#define MAX77705_OTG_ILIM_1200		0x2
-#define MAX77705_OTG_ILIM_1500		0x3
 #define MAX77705_CHG_CC                         0x3F
 
 /* MAX77705_CHG_REG_CHG_CNFG_03 */
@@ -184,20 +171,6 @@ ssize_t max77705_chg_store_attrs(struct device *dev,
 
 #define CHG_CNFG_04_CHG_CV_PRM_SHIFT            0
 #define CHG_CNFG_04_CHG_CV_PRM_MASK             (0x3F << CHG_CNFG_04_CHG_CV_PRM_SHIFT)
-
-/* MAX77705_CHG_REG_CHG_CNFG_05 */
-#define CHG_CNFG_05_REG_B2SOVRC_SHIFT	0
-#define CHG_CNFG_05_REG_B2SOVRC_MASK	(0xF << CHG_CNFG_05_REG_B2SOVRC_SHIFT)
-#define MAX77705_B2SOVRC_DISABLE	0x0
-#define MAX77705_B2SOVRC_4_6A		0x7
-#define MAX77705_B2SOVRC_4_8A		0x8
-#define MAX77705_B2SOVRC_5_0A		0x9
-#define MAX77705_B2SOVRC_5_2A		0xA
-#define MAX77705_B2SOVRC_5_4A		0xB
-#define MAX77705_B2SOVRC_5_6A		0xC
-#define MAX77705_B2SOVRC_5_8A		0xD
-#define MAX77705_B2SOVRC_6_0A		0xE
-#define MAX77705_B2SOVRC_6_2A		0xF
 
 /* MAX77705_CHG_CNFG_06 */
 #define CHG_CNFG_01_WDTCLR_SHIFT		0
@@ -237,10 +210,7 @@ ssize_t max77705_chg_store_attrs(struct device *dev,
 #define CHG_CNFG_12_WCINSEL_MASK		(0x1 << CHG_CNFG_12_WCINSEL_SHIFT)
 #define CHG_CNFG_12_VCHGIN_REG_MASK		(0x3 << 3)
 #define CHG_CNFG_12_WCIN_REG_MASK		(0x3 << 1)
-#define CHG_CNFG_12_REG_DISKIP_SHIFT		0
-#define CHG_CNFG_12_REG_DISKIP_MASK		(0x1 << CHG_CNFG_12_REG_DISKIP_SHIFT)
-#define MAX77705_DISABLE_SKIP			0x1
-#define MAX77705_AUTO_SKIP			0x0
+#define CHG_CNFG_12_DISSKIP				(0x1 << 0)
 
 /* MAX77705_CHG_REG_CHG_SWI_INT */
 #define MAX77705_SLAVE_TREG_I			(1 << 0)
@@ -272,14 +242,6 @@ ssize_t max77705_chg_store_attrs(struct device *dev,
 #define WC_CURRENT_STEP		100
 #define WC_CURRENT_START	480
 
-#if defined(CONFIG_CHARGER_MAX77705_OTG_LIMIT)
-enum max77705_otg_limit_step {
-	MAX77705_LIMIT_STEP_DEFAULT,
-	MAX77705_LIMIT_STEP_OTG_ON,
-	MAX77705_LIMIT_STEP_NUM,
-};
-#endif
-
 struct max77705_charger_data {
 	struct device           *dev;
 	struct i2c_client       *i2c;
@@ -305,6 +267,7 @@ struct max77705_charger_data {
 	struct mutex ops_lock;
 
 	/* wakelock */
+	struct wake_lock recovery_wake_lock;
 	struct wake_lock wpc_wake_lock;
 	struct wake_lock chgin_wake_lock;
 	struct wake_lock wc_current_wake_lock;
@@ -319,7 +282,6 @@ struct max77705_charger_data {
 	unsigned int	input_current;
 	unsigned int	charging_current;
 	unsigned int	vbus_state;
-	bool	prev_aicl_mode;
 	int		aicl_on;
 	bool	slow_charging;
 	int		status;
@@ -329,9 +291,7 @@ struct max77705_charger_data {
 
 	int		irq_bypass;
 	int		irq_batp;
-#if defined(CONFIG_MAX77705_CHECK_B2SOVRC)
-	int		irq_bat;
-#endif
+
 	int		irq_battery;
 	int		irq_chg;
 	int		irq_wcin;
@@ -366,10 +326,6 @@ struct max77705_charger_data {
 
 	bool is_mdock;
 	bool otg_on;
-#if defined(CONFIG_CHARGER_MAX77705_OTG_LIMIT)
-	int otg_limit_step;
-	int cpu_max_freq[MAX77705_LIMIT_STEP_NUM];
-#endif
 
 	int pmic_ver;
 	int input_curr_limit_step;

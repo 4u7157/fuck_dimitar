@@ -29,7 +29,7 @@ obj-$(CONFIG_SENSORS_SSP_TMD4906)	+= factory/light_tmg399x.o
 obj-$(CONFIG_SENSORS_SSP_CM3323)	+= factory/light_cm3323.o
 
 obj-$(CONFIG_SENSORS_SSP_PROX_FACTORYCAL)	+= factory/prox_tmg399x.o
-obj-$(CONFIG_SENSORS_SSP_PROX_AUTOCAL_AMS)	+= factory/prox_autocal_ams.o
+obj-$(CONFIG_SENSORS_SSP_VCNL36811S)	+= factory/prox_vcnl36811s.o
 obj-$(CONFIG_SENSORS_SSP_LIGHT_COLORID) += factory/light_colorid.o
 obj-$(CONFIG_SENSORS_SSP_BMP182)	+= factory/pressure_bmp182.o
 obj-$(CONFIG_SENSORS_SSP_LPS25H)	+= factory/pressure_lps25h.o
@@ -45,6 +45,7 @@ obj-$(CONFIG_SENSORS_SSP_SX9306)	 += factory/grip_sx9306.o
 obj-$(CONFIG_SENSORS_SSP_SENSORHUB)	+= ssp_sensorhub.o ssp_misc.o
 obj-$(CONFIG_SENSORS_SX9310)		+= sx9310.o
 obj-$(CONFIG_SENSORS_SX9320)		+= sx9320.o
+obj-$(CONFIG_SENSORS_A96T3X6)		+= a96t3x6.o
 
 obj-$(CONFIG_SENSORS_SSP_BBD)           += ssp_bbd.o factory/mcu_bcm4774.o
 obj-$(CONFIG_SENSORS_SSP_BBD)           += bbdpl/

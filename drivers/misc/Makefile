@@ -60,6 +60,10 @@ obj-$(CONFIG_SEC_SIPC_MODEM_IF) += modem_v1/
 obj-$(CONFIG_SEC_MODEM_IF) 	+= modem_if/
 obj-$(CONFIG_MEMORY_STATE_TIME)	+= memory_state_time.o
 
+obj-y		+= tzic64.o
+
+obj-$(CONFIG_UH)		+= uh_debug_log.o
+
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_core.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_bugs.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_heap.o
@@ -69,10 +73,6 @@ lkdtm-$(CONFIG_LKDTM)		+= lkdtm_usercopy.o
 
 CFLAGS_lkdtm_rodata.o		+= $(DISABLE_LTO)
 KCOV_INSTRUMENT_lkdtm_rodata.o	:= n
-
-# Secure OS Mobicore Interface
-obj-$(CONFIG_TRUSTONIC_TEE)	+= tzic64.o
-obj-$(CONFIG_TIMA_LOG)		+= tima_debug_log.o
 
 OBJCOPYFLAGS :=
 OBJCOPYFLAGS_lkdtm_rodata_objcopy.o := \

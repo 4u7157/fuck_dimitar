@@ -37,6 +37,12 @@
 #include "decon.h"
 #include "dsim.h"
 
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+#include "decon_board.h"
+#include "panels/dsim_panel.h"
+#include "panels/dd.h"
+#endif
+
 int dsim_log_level = 6;
 
 struct dsim_device *dsim_drvdata[MAX_DSIM_CNT];
@@ -238,6 +244,11 @@ int dsim_write_data(struct dsim_device *dsim, u32 id, unsigned long d0, u32 d1)
 	bool must_wait = true;
 	struct decon_device *decon = get_decon_drvdata(0);
 
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+	if (!dsim->priv.lcdconnected)
+		return 0;
+#endif
+
 	decon_hiber_block_exit(decon);
 
 	mutex_lock(&dsim->cmd_lock);
@@ -247,6 +258,7 @@ int dsim_write_data(struct dsim_device *dsim, u32 id, unsigned long d0, u32 d1)
 		goto err_exit;
 	}
 	DPU_EVENT_LOG_CMD(&dsim->sd, id, d0);
+	dsim_write_data_dump(dsim, id, d0, d1);
 
 	reinit_completion(&dsim->ph_wr_comp);
 	dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
@@ -296,7 +308,8 @@ int dsim_write_data(struct dsim_device *dsim, u32 id, unsigned long d0, u32 d1)
 
 	ret = dsim_wait_for_cmd_fifo_empty(dsim, must_wait);
 	if (ret < 0) {
-		dsim_err("ID(%d): DSIM cmd wr timeout 0x%lx\n", id, d0);
+		dsim_err("ID(%2X): DSIM cmd wr timeout 0x%2x\n",
+			id, (id == MIPI_DSI_GENERIC_LONG_WRITE || id == MIPI_DSI_DCS_LONG_WRITE) ? *(u8 *)d0 : (unsigned int)d0);
 	}
 
 err_exit:
@@ -312,6 +325,11 @@ int dsim_read_data(struct dsim_device *dsim, u32 id, u32 addr, u32 cnt, u8 *buf)
 	int i, j, ret = 0;
 	u32 rx_fifo_depth = DSIM_RX_FIFO_MAX_DEPTH;
 	struct decon_device *decon = get_decon_drvdata(0);
+
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+	if (!dsim->priv.lcdconnected)
+		return 0;
+#endif
 
 	decon_hiber_block_exit(decon);
 
@@ -333,7 +351,7 @@ int dsim_read_data(struct dsim_device *dsim, u32 id, u32 addr, u32 cnt, u8 *buf)
 	/* Read request */
 	dsim_write_data(dsim, id, addr, 0);
 	if (!wait_for_completion_timeout(&dsim->rd_comp, MIPI_RD_TIMEOUT)) {
-		dsim_err("MIPI DSIM read Timeout!\n");
+		dsim_err("MIPI DSIM read Timeout! %2X, %2X, %d\n", id, addr, cnt);
 		return -ETIMEDOUT;
 	}
 
@@ -370,6 +388,10 @@ int dsim_read_data(struct dsim_device *dsim, u32 id, u32 addr, u32 cnt, u8 *buf)
 			rx_size = (rx_fifo & 0x00ffff00) >> 8;
 			dsim_dbg("rx fifo : %8x, response : %x, rx_size : %d\n",
 					rx_fifo, rx_fifo & 0xff, rx_size);
+			if (rx_size > cnt) {
+				dsim_err("rx size is invalid, rx_size: %d, cnt: %d\n", rx_size, cnt);
+				rx_size = cnt;
+			}
 			/* Read data from RX packet payload */
 			for (i = 0; i < rx_size >> 2; i++) {
 				rx_fifo = dsim_reg_get_rx_fifo(dsim->id);
@@ -598,6 +620,13 @@ static int dsim_reset_panel(struct dsim_device *dsim)
 
 	dsim_dbg("%s +\n", __func__);
 
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+	run_list(dsim->dev, __func__);
+#endif
+
+	if (res->lcd_reset <= 0)
+		return 0;
+
 	ret = gpio_request_one(res->lcd_reset, GPIOF_OUT_INIT_HIGH, "lcd_reset");
 	if (ret < 0) {
 		dsim_err("failed to get LCD reset GPIO\n");
@@ -624,6 +653,13 @@ static int dsim_set_panel_power(struct dsim_device *dsim, bool on)
 
 	dsim_dbg("%s(%d) +\n", __func__, on);
 
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+	if (on)
+		run_list(dsim->dev, "dsim_set_panel_power_enable");
+	else
+		run_list(dsim->dev, "dsim_set_panel_power_disable");
+#endif
+
 	if (on) {
 		if (res->lcd_power[0] > 0) {
 			ret = gpio_request_one(res->lcd_power[0],
@@ -647,13 +683,15 @@ static int dsim_set_panel_power(struct dsim_device *dsim, bool on)
 			usleep_range(10000, 11000);
 		}
 	} else {
-		ret = gpio_request_one(res->lcd_reset, GPIOF_OUT_INIT_LOW,
-				"lcd_reset");
-		if (ret < 0) {
-			dsim_err("failed LCD reset off\n");
-			return -EINVAL;
+		if (res->lcd_reset > 0) {
+			ret = gpio_request_one(res->lcd_reset, GPIOF_OUT_INIT_LOW,
+					"lcd_reset");
+			if (ret < 0) {
+				dsim_err("failed LCD reset off\n");
+				return -EINVAL;
+			}
+			gpio_free(res->lcd_reset);
 		}
-		gpio_free(res->lcd_reset);
 
 		if (res->lcd_power[0] > 0) {
 			ret = gpio_request_one(res->lcd_power[0],
@@ -761,6 +799,7 @@ static void dsim_phy_status(void)
 static int _dsim_enable(struct dsim_device *dsim, enum dsim_state state)
 {
 	int ret = 0;
+	bool panel_ctrl;
 
 	if (IS_DSIM_ON_STATE(dsim)) {
 		dsim_warn("%s dsim already on(%s)\n",
@@ -798,9 +837,11 @@ static int _dsim_enable(struct dsim_device *dsim, enum dsim_state state)
 #endif
 	/* Enable DPHY reset : DPHY reset start */
 	dsim_reg_dphy_resetn(dsim->id, 1);
+	panel_ctrl = (dsim->state == DSIM_STATE_OFF) ? true : false;
 
 	/* Panel power on */
-	dsim_set_panel_power(dsim, 1);
+	if (panel_ctrl)
+		dsim_set_panel_power(dsim, 1);
 
 	dsim_reg_sw_reset(dsim->id);
 
@@ -822,7 +863,8 @@ static int _dsim_enable(struct dsim_device *dsim, enum dsim_state state)
  #if !defined(CONFIG_EXYNOS_COMMON_PANEL) || defined(CONFIG_OLD_DISP_TIMING)
 		dsim_info("dsim_%d enabled", dsim->id);
 		/* Panel reset should be set after LP-11 */
-		dsim_reset_panel(dsim);
+		if (panel_ctrl)
+			dsim_reset_panel(dsim);
  #endif
 	}
 
@@ -1557,6 +1599,8 @@ static void dsim_register_panel(struct dsim_device *dsim)
 {
 #if IS_ENABLED(CONFIG_EXYNOS_COMMON_PANEL)
 	dsim->panel_ops = &common_mipi_lcd_driver;
+#elif defined(CONFIG_EXYNOS_MASS_PANEL)
+	dsim->panel_ops = mipi_lcd_driver;
 #elif IS_ENABLED(CONFIG_EXYNOS_DECON_LCD_S6E3HA2K)
 	dsim->panel_ops = &s6e3ha2k_mipi_lcd_driver;
 #elif IS_ENABLED(CONFIG_EXYNOS_DECON_LCD_S6E3HF4)

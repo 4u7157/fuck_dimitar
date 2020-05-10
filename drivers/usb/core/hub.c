@@ -1763,6 +1763,7 @@ static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 		if (drv->bus_suspend && drv->bus_resume)
 			usb_enable_autosuspend(hdev);
 	}
+
 	if (hdev->level == MAX_TOPO_LEVEL) {
 		dev_err(&intf->dev,
 			"Unsupported bus topology: hub nested too deep\n");
@@ -2353,9 +2354,7 @@ static int usb_enumerate_device(struct usb_device *udev)
 		return -ENOTSUPP;
 	}
 #if defined(CONFIG_USB_NOTIFY_LAYER)
-	if (IS_ENABLED(CONFIG_USB_NOTIFY_LAYER) &&
-		/*hcd->tpl_support &&*/
-		!usb_check_whitelist_for_mdm(udev)) {
+	if (!usb_check_whitelist_for_mdm(udev)) {
 		if (IS_ENABLED(CONFIG_USB_OTG) && (udev->bus->b_hnp_enable
 			|| udev->bus->is_b_host)) {
 			err = usb_port_suspend(udev, PMSG_AUTO_SUSPEND);

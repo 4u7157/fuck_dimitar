@@ -64,31 +64,31 @@ extern int dsim_log_level;
 #define dsim_err(fmt, ...)							\
 	do {									\
 		if (dsim_log_level >= 3) {					\
-			pr_err(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_err(pr_fmt("dsim: "fmt), ##__VA_ARGS__);			\
 		}								\
 	} while (0)
 
 #define dsim_warn(fmt, ...)							\
 	do {									\
 		if (dsim_log_level >= 4) {					\
-			pr_warn(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_warn(pr_fmt("dsim: "fmt), ##__VA_ARGS__);			\
 		}								\
 	} while (0)
 
 #define dsim_info(fmt, ...)							\
 	do {									\
 		if (dsim_log_level >= 6)					\
-			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_info(pr_fmt("dsim: "fmt), ##__VA_ARGS__);			\
 	} while (0)
 
 #define dsim_dbg(fmt, ...)							\
 	do {									\
 		if (dsim_log_level >= 7)					\
-			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_info(pr_fmt("dsim: "fmt), ##__VA_ARGS__);			\
 	} while (0)
 
 #define call_panel_ops(q, op, args...)				\
-	(((q)->panel_ops->op) ? ((q)->panel_ops->op(args)) : 0)
+	(((q) && ((q)->panel_ops->op)) ? ((q)->panel_ops->op(args)) : 0)
 
 extern struct dsim_device *dsim_drvdata[MAX_DSIM_CNT];
 extern struct dsim_lcd_driver s6e3ha2k_mipi_lcd_driver;
@@ -226,6 +226,13 @@ struct dsim_resources {
 #endif
 };
 
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+struct panel_private {
+	unsigned int lcdconnected;
+	void *par;
+};
+#endif
+
 struct dsim_device {
 	int id;
 	enum dsim_state state;
@@ -254,9 +261,21 @@ struct dsim_device {
 	struct disp_error_cb_info error_cb_info;
 	struct disp_check_cb_info check_cb_info;
 #endif
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+	struct panel_private priv;
+#endif
 };
 
 struct dsim_lcd_driver {
+#if defined(CONFIG_EXYNOS_MASS_PANEL)
+	char *name;
+#if defined(CONFIG_LOGGING_BIGDATA_BUG)
+	unsigned int (*get_buginfo)(struct dsim_device *dsim);
+#endif
+#if defined(CONFIG_SUPPORT_MASK_LAYER)
+	int (*mask_brightness)(struct dsim_device *dsim);
+#endif
+#endif
 	int (*init)(struct dsim_device *dsim);
 	int (*probe)(struct dsim_device *dsim);
 	int (*suspend)(struct dsim_device *dsim);

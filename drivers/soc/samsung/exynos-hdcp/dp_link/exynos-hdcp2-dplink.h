@@ -14,6 +14,18 @@
 int dplink_emul_handler(int cmd);
 #endif
 
+enum {
+	HDCP_AUTH_PROCESS_ON   = 0x0,
+	HDCP_AUTH_PROCESS_STOP = 0x1,
+	HDCP_AUTH_PROCESS_DONE = 0x2
+};
+
+enum {
+	DRM_OFF = 0x0,
+	DRM_ON = 0x1,
+	DRM_SAME_STREAM_TYPE = 0x2	/* If the previous contents and stream_type id are the same flag */
+};
+
 /* Do hdcp2.2 authentication with DP Receiver
  * and enable encryption if authentication is succeed.
  * @return
@@ -33,6 +45,10 @@ int hdcp_dplink_set_integrity_fail(void);
 int hdcp_dplink_cancel_auth(void);
 int hdcp_dplink_stream_manage(void);
 int hdcp_dplink_is_auth_state(void);
+int hdcp_dplink_auth_check(void);
+int hdcp_dplink_drm_flag_check(int flag);
+int hdcp_dplink_dp_link_flag_check(int flag);
 void hdcp_clear_session(uint32_t id);
-void hdcp_dplink_clear_all(void);
+
+extern void reset_dp_hdcp_module(void);
 #endif

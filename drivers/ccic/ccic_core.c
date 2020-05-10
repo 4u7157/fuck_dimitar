@@ -22,7 +22,7 @@
 
 #include <linux/device.h>
 #include <linux/module.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #include <linux/ccic/ccic_core.h>
 #include <linux/ccic/ccic_sysfs.h>
 #include <linux/power_supply.h>
@@ -107,17 +107,6 @@ int ccic_core_register_chip(pccic_data_t pccic_data)
 		pr_err("%s: ccic sysfs fail, ret %d", __func__, ret);
 out:
 	return ret;
-}
-
-void ccic_core_unregister_chip(void)
-{
-	pr_info("%s\n", __func__);
-	if (IS_ERR(ccic_device)) {
-		pr_err("%s ccic_device is not present try again\n", __func__);
-		return;
-	}
-	sysfs_remove_group(&ccic_device->kobj, &ccic_sysfs_group);
-	dev_set_drvdata(ccic_device, NULL);
 }
 
 int ccic_core_init(void)

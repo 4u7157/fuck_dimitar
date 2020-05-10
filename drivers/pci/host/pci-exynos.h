@@ -90,7 +90,7 @@ struct exynos_pcie {
 	bool			use_sysmmu;
 	bool			use_ia;
 	spinlock_t		conf_lock;
-	spinlock_t		reg_lock;	
+	spinlock_t		reg_lock;
 	struct workqueue_struct	*pcie_wq;
 	struct exynos_pcie_clks	clks;
 	struct pcie_port	pp;
@@ -341,8 +341,6 @@ struct exynos_pcie {
 #define NCLK_OFF_OFFSET			0x2
 
 void exynos_pcie_phy_init(struct pcie_port *pp);
-extern int sec_argos_register_notifier(struct notifier_block *n, char *label);
-extern int sec_argos_unregister_notifier(struct notifier_block *n, char *label);
 
 #ifdef CONFIG_EXYNOS_PCIE_IOMMU
 extern void pcie_sysmmu_enable(void);

@@ -129,31 +129,7 @@ static struct bbd_device bbd;
  * Embedded patch file provided as /dev/bbd_patch
  */
 static unsigned char bbd_patch[] = {
-#if defined(CONFIG_SENSORS_SSP_STAR)
-#if ANDROID_VERSION < 90000
-#include "o_os/bbd_patch_file_star.h"
-#elif ANDROID_VERSION < 100000
-#include "p_os/bbd_patch_file_star.h"
-#else
-#include "q_os/bbd_patch_file_star.h"
-#endif
-#elif defined(CONFIG_SENSORS_SSP_CROWN)
-#if ANDROID_VERSION < 90000
-#include "o_os/bbd_patch_file_crown.h"
-#elif ANDROID_VERSION < 100000
-#include "p_os/bbd_patch_file_crown.h"
-#else
-#include "q_os/bbd_patch_file_crown.h"
-#endif
-#elif defined(CONFIG_SENSORS_SSP_HAECHI)
-#if ANDROID_VERSION < 90000
-#include "bbd_patch_file_haechi.h"
-#elif ANDROID_VERSION < 100000
-#include "p_os/bbd_patch_file_haechi.h"
-#else
-#include "q_os/bbd_patch_file_haechi.h"
-#endif
-#endif
+#include "q_os/bbd_patch_file_anote.h"
 };
 
 /* Function to push read data into any bbd device's read buf */
