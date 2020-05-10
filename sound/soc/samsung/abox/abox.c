@@ -4672,10 +4672,6 @@ static void abox_system_ipc_handler(struct device *dev,
 					ABOX_DBG_DUMP_FIRMWARE, type);
 			abox_dbg_dump_mem(dev, data, ABOX_DBG_DUMP_FIRMWARE,
 					type);
-#ifdef CONFIG_SND_SOC_SAMSUNG_AUDIO
-			abox_debug_string_update(system_msg->param1,
-				abox_addr_to_kernel_addr(data, system_msg->bundle.param_s32[0]));
-#endif
 			break;
 		default:
 			abox_dbg_print_gpr(dev, data);
@@ -4683,9 +4679,6 @@ static void abox_system_ipc_handler(struct device *dev,
 					type);
 			abox_dbg_dump_mem(dev, data, ABOX_DBG_DUMP_FIRMWARE,
 					type);
-#ifdef CONFIG_SND_SOC_SAMSUNG_AUDIO
-			abox_debug_string_update(system_msg->param1, NULL);
-#endif
 			break;
 		}
 		abox_failsafe_report(dev);
@@ -5748,10 +5741,6 @@ static int abox_print_power_usage(struct device *dev, void *data)
 	if (pm_runtime_enabled(dev) && pm_runtime_active(dev)) {
 		dev_info(dev, "usage_count:%d\n",
 				atomic_read(&dev->power.usage_count));
-#ifdef CONFIG_SND_SOC_SAMSUNG_AUDIO
-		sec_audio_pmlog(6, dev, "usage_count:%d\n",
-				atomic_read(&dev->power.usage_count));
-#endif
 		device_for_each_child(dev, data, abox_print_power_usage);
 	}
 
@@ -5790,9 +5779,6 @@ static int abox_pm_notifier(struct notifier_block *nb,
 			ret = pm_runtime_suspend(dev);
 			if (ret < 0) {
 				dev_info(dev, "runtime suspend: %d\n", ret);
-#ifdef CONFIG_SND_SOC_SAMSUNG_AUDIO
-				sec_audio_pmlog(6, dev, "runtime suspend: %d\n", ret);
-#endif
 				abox_print_power_usage(dev, NULL);
 				return NOTIFY_BAD;
 			}
@@ -5821,13 +5807,6 @@ static int abox_modem_notifier(struct notifier_block *nb,
 		system_msg->msgtype = ABOX_START_VSS;
 		abox_request_ipc(dev, msg.ipcid, &msg, sizeof(msg), 1, 0);
 		break;
-#ifdef CONFIG_SND_SOC_SAMSUNG_AUDIO
-	case MODEM_EVENT_RESET:
-	case MODEM_EVENT_EXIT:
-	case MODEM_EVENT_WATCHDOG:
-		abox_debug_string_update(TYPE_ABOX_VSSERROR, NULL);
-		break;
-#endif
 	}
 
 	return NOTIFY_DONE;

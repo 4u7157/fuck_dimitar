@@ -615,7 +615,7 @@ volatile bool vts_is_on(void)
 }
 EXPORT_SYMBOL(vts_is_on);
 
-volatile bool vts_is_recognitionrunning(void)
+bool vts_is_recognitionrunning(void)
 {
 	return p_vts_data && p_vts_data->running;
 }
@@ -2700,6 +2700,8 @@ static int samsung_vts_probe(struct platform_device *pdev)
 
 	device_init_wakeup(dev, true);
 
+	of_platform_populate(np, NULL, NULL, dev);
+
 	/* Allocate Memory for error logging */
 	for (i = 0; i < VTS_DUMP_LAST; i++) {
 		if (i == RUNTIME_SUSPEND_DUMP) {
@@ -2748,7 +2750,7 @@ static int samsung_vts_remove(struct platform_device *pdev)
 	for (i = 0; i < RUNTIME_SUSPEND_DUMP; i++) {
 		/* Free memory for VTS firmware */
 		kfree(data->p_dump[i].sram_fw);
- 	}
+	}
 
 	snd_soc_unregister_component(dev);
 #ifdef EMULATOR
